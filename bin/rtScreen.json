@@ -1,0 +1,59 @@
+{
+    "full_screen": "no",
+    "mysql": {
+        "charset": "utf8",
+        "db": "cnt_demo",
+        "host": "192.168.1.250",
+        "password": "13579",
+        "port": "3306",
+        "user": "rt_user"
+    },
+    "ref_end_time": {
+        "hour": 18,
+        "min": 0
+    },
+    "ref_start_time": {
+        "hour": 4,
+        "min": 0
+    },
+    "use_label": "canvas",
+    "refresh_interval": 5,
+    "template": "template1.json",
+    "constant": [
+        {
+            "name": "limited_number",
+            "value": 6000,
+            "flag": "y"
+        },
+        {
+            "name": "limit_AA",
+            "value": 4000,
+            "flag": "y"
+        },
+        {
+            "name": "limit_BB",
+            "value": 6500,
+            "flag": "y"
+        },
+        {
+            "name": "limit_CC",
+            "value": 400,
+            "flag": "y"
+        },
+        {
+            "name": "occupied_AA",
+            "value": 8000,
+            "flag": "y"
+        },
+        {
+            "name": "occupied_BB",
+            "value": 8000,
+            "flag": "y"
+        },
+        {
+            "name": "occupuid_CC",
+            "value": 8000,
+            "flag": "y"
+        }
+    ]
+}
