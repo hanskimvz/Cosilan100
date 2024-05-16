@@ -1,0 +1,869 @@
+{
+  "main_menu": [
+    {
+      "page": "split_line",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "main",
+      "icon": "",
+      "to": "",
+      "use": "y"
+    },
+    {
+      "page": "dashboard",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "dashboard",
+      "icon": "monitor",
+      "to": "/dashboard",
+      "use": "y"
+    },
+    {
+      "page": "footfall",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "footfall",
+      "icon": "users",
+      "to": "#footfall",
+      "use": "y",
+      "children":[
+        {
+          "page": "dataglunt",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "dataglunt",
+          "icon": "",
+          "to": "/dataGlunt",
+          "use": "y"
+        },
+        {
+          "page": "latestflow",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "latestflow",
+          "icon": "",
+          "to": "/latestFlow",
+          "use": "y"
+        },
+        {
+          "page": "trendanalysis",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "trendanalysis",
+          "icon": "",
+          "to": "/trendAnalysis",
+          "use": "y"
+        },
+        {
+          "page": "advancedanalysis",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "advancedanalysis",
+          "icon": "",
+          "to": "/advancedAnalysis",
+          "use": "y"
+        },
+        {
+          "page": "promotionanalysis",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "promotionanalysis",
+          "icon": "",
+          "to": "/promotionAnalysis",
+          "use": "n"
+        },
+        {
+          "page": "brandoverview",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "brandoverview",
+          "icon": "",
+          "to": "/brandOverview",
+          "use": "n"
+        },
+        {
+          "page": "weatheranalysis",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "weatheranalysis",
+          "icon": "",
+          "to": "/weatherAnalysis",
+          "use": "n"
+        },
+        {
+          "page": "kpi",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "kpioverview",
+          "icon": "aperture",
+          "to": "/kpi",
+          "use": "n"
+        }
+      ]
+    },
+    {
+      "page": "datacompare",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "datacompare",
+      "icon": "sliders",
+      "to": "#dataCompare",
+      "use": "y",
+      "children": [
+        {
+          "page": "comparebytime",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "comparebytime",
+          "icon": "",
+          "to": "/compareByTime",
+          "use": "y"
+        },
+        {
+          "page": "comparebyplace",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "comparebyplace",
+          "icon": "",
+          "to": "/compareByPlace",
+          "use": "y"
+        },
+        {
+          "page": "trafficdistribution",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "trafficdistribution",
+          "icon": "",
+          "to": "/trafficDistribution",
+          "use": "y"
+        },
+        {
+          "page": "comparebylabel",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "comparebylabel",
+          "icon": "",
+          "to": "/compareByLabel",
+          "use": "y"
+        }
+      ]
+    },
+    {
+      "page": "heatmap",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "heatmap",
+      "icon": "map-pin",
+      "to": "/heatmap",
+      "use": "y"
+    },
+    {
+      "page": "agegender",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "genderandage",
+      "icon": "slack",
+      "to": "/agegender",
+      "use": "y"
+    },
+    {
+      "page": "macsniff",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "macsniff",
+      "icon": "wifi",
+      "to": "/macsniff",
+      "use": "n"
+    },
+    {
+      "page": "report",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "report",
+      "icon": "book-open",
+      "to": "#report",
+      "use": "y",
+      "children":[
+    
+        {
+          "page": "summary",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "summary",
+          "icon": "",
+          "to": "/summary",
+          "use": "y"
+        },
+        {
+          "page": "standard",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "standard",
+          "icon": "",
+          "to": "/standard",
+          "use": "y"
+        },
+        {
+          "page": "premium",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "premium",
+          "icon": "",
+          "to": "/premium",
+          "use": "y"
+        },
+        {
+          "page": "export",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "export",
+          "icon": "",
+          "to": "/export",
+          "use": "y"
+        }
+      ]
+    },
+    {
+      "page": "sensors",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "sensors",
+      "icon": "camera",
+      "to": "/sensors",
+      "use": "y"
+    },
+    {
+      "page": "sitemap",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "sitemap",
+      "icon": "map",
+      "to": "/sitemap",
+      "use": "y"
+    },
+    {
+      "page": "version",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "version",
+      "icon": "pen-tool",
+      "to": "/version",
+      "use": "n"
+    },
+    {
+      "page": "feedback",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "feedback",
+      "icon": "phone-call",
+      "to": "/feedback",
+      "use": "n"
+    },
+    {
+      "page": "split_line",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "setting",
+      "icon": "",
+      "to": "",
+      "use": "y"
+    },
+    {
+      "page": "split_line",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "about",
+      "icon": "",
+      "to": "",
+      "use": "y"
+    }
+  ],
+
+
+  "admin_menu": [
+    {
+      "page": "account",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "account",
+      "icon": "fa-id-card",
+      "to": "/admin/account",
+      "use": "y"
+    },
+    {
+      "page": "device_tree",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "devicetree",
+      "icon": "fa-sitemap",
+      "to": "/admin/device_tree",
+      "use": "y"
+    },
+    {
+      "page": "list_device",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "camera",
+      "icon": "fa-camera",
+      "to": "/admin/list_device",
+      "use": "y"
+    },
+    {
+      "page": "counter_label_set",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "counterlabel",
+      "icon": "fa-clock",
+      "to": "/admin/counter_label_set",
+      "use": "y"
+    },
+    {
+      "page": "custom_database",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "custom_database",
+      "icon": "fa-database",
+      "to": "#custom_database",
+      "use": "y",
+      "children": [
+        {
+          "page": "counting",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "counting",
+          "icon": "fa-user-plus",
+          "to": "/admin/db:custom.count_tenmin_p",
+          "use": "y"
+        },
+        {
+          "page": "agegender",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "age gender",
+          "icon": "fa-venus-mars",
+          "to": "/admin/db:custom.age_gender",
+          "use": "y"
+        },
+        {
+          "page": "heatmap",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "heatmap",
+          "icon": "fa-street-view",
+          "to": "/admin/db:custom.heatmap",
+          "use": "y"
+        },
+        {
+          "page": "weather",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "weather",
+          "icon": "fa-cogs",
+          "to": "/admin/db:custom.weather",
+          "use": "y"
+        }
+      ]
+    },
+    {
+      "page": "common_database",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "common_database",
+      "icon": "fa-database",
+      "to": "#common_database",
+      "use": "y",
+      "children": [   
+        {
+          "page": "params",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "params",
+          "icon": "fa-cogs",
+          "to": "/admin/db:common.params",
+          "use": "y"
+        },
+        {
+          "page": "counting_common",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "counting",
+          "icon": "fa-user-plus",
+          "to": "/admin/db:common.counting_report_10min",
+          "use": "y"
+        },
+        {
+          "page": "event_counting_common",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "eventcounting",
+          "icon": "fa-user-plus",
+          "to": "/admin/db:common.counting_event",
+          "use": "y"
+        },
+        {
+          "page": "face_thumbnail",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "face",
+          "icon": "fa-smile",
+          "to": "/admin/db:common.face_thumbnail",
+          "use": "y"
+        },
+        {
+          "page": "heatmap_common",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "heatmap",
+          "icon": "fa-street-view",
+          "to": "/admin/db:common.heatmap",
+          "use": "y"
+        },
+        {
+          "page": "snapshot",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "snapshot",
+          "icon": "fa-film",
+          "to": "/admin/db:common.snapshot",
+          "use": "y"
+        },
+        {
+          "page": "sniff",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "macsniff",
+          "icon": "fa-cogs",
+          "to": "/admin/db:common.mac_sniff",
+          "use": "y"
+        },
+        {
+          "page": "access_log",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "access log",
+          "icon": "fa-list-ol",
+          "to": "/admin/db:common.access_log",
+          "use": "y"
+        }
+      ]
+    },        
+    {
+      "page": "language",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "language",
+      "icon": "fa-language",
+      "to": "/admin/language",
+      "use": "y"
+    },
+    {
+      "page": "information",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "information",
+      "icon": "fa-language",
+      "to": "/admin/information",
+      "use": "y"
+    },
+    {
+      "page": "system",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "system",
+      "icon": "fa-database",
+      "to": "#system",
+      "use": "y",
+      "children": [  
+        {
+          "page": "software",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "software",
+          "icon": "",
+          "to": "/system/software",
+          "use": "y"
+        },
+        {
+          "page": "database",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "database",
+          "icon": "",
+          "to": "/system/database",
+          "use": "y"
+        },
+        {
+          "page": "license",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "license",
+          "icon": "",
+          "to": "/system/license",
+          "use": "y"
+        },
+        {
+          "page": "tool",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "tool",
+          "icon": "",
+          "to": "/system/tool",
+          "use": "y"
+        },
+        {
+          "page": "system_log",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "system_log",
+          "icon": "",
+          "to": "/system/log",
+          "use": "y"
+        }
+      ]
+    },
+    {
+      "page": "webpageconfig",
+      "parent": 0,
+      "depth": 0,
+      "i18n_t": "webpageconfig",
+      "icon": "fa-database",
+      "to": "#webpageconfig",
+      "use": "y",
+      "children": [    
+        {
+          "page": "basic",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "basic",
+          "icon": "",
+          "to": "/admin/webconfigbasic",
+          "use": "y"
+        },
+        {
+          "page": "sidemenu",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "sidemenu",
+          "icon": "",
+          "to": "/admin/webconfigmenus",
+          "use": "y"
+        },
+        {
+          "page": "dashboard",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "dashboard",
+          "icon": "",
+          "to": "/admin/webconfigdashboard",
+          "use": "y"
+        },
+        {
+          "page": "analysis",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "analysis",
+          "icon": "",
+          "to": "/admin/webconfiganalysis",
+          "use": "y"
+        },
+        {
+          "page": "report",
+          "parent": 0,
+          "depth": 0,
+          "i18n_t": "report",
+          "icon": "",
+          "to": "/admin/webconfigreport",
+          "use": "y"
+        }
+      ]
+    }
+  ],
+  "dashboard": [
+    {
+      "page": "card_banner",
+      "depth": 0,
+      "i18n_t": "today",
+      "color": "#47bac1",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "card_banner",
+      "depth": 1,
+      "i18n_t": "yesterday",
+      "color": "#fcc100",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "card_banner",
+      "depth": 2,
+      "i18n_t": "average12week",
+      "color": "#5b7dff",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "card_banner",
+      "depth": 3,
+      "i18n_t": "total12week",
+      "color": "#5fc27e",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "footfall",
+      "depth": 0,
+      "i18n_t": "lastweek",
+      "color": null,
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "footfall",
+      "depth": 1,
+      "i18n_t": "thisweek",
+      "color": null,
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "footfall",
+      "depth": 2,
+      "i18n_t": "last12weeks",
+      "color": null,
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "footfall",
+      "depth": 3,
+      "i18n_t": "last12weeks",
+      "color": null,
+      "labels": null,
+      "use": "y"
+    },
+    {
+      "page": "third_block",
+      "depth": 0,
+      "i18n_t": "curve_by_label",
+      "color": null,
+      "labels": null,
+      "use": "y"
+    },
+    {
+      "page": "curve_by_label",
+      "depth": 0,
+      "i18n_t": "入",
+      "color": "#47bac1",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "curve_by_label",
+      "depth": 1,
+      "i18n_t": "出",
+      "color": "#fcc100",
+      "labels": [
+        "exit"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "curve_by_label",
+      "depth": 2,
+      "i18n_t": "curve_by_label2_display",
+      "color": "#5b7dff",
+      "labels": null,
+      "use": "y"
+    },
+    {
+      "page": "curve_by_label",
+      "depth": 3,
+      "i18n_t": "curve_by_label3_display",
+      "color": "#5fc27e",
+      "labels": null,
+      "use": "y"
+    },
+    {
+      "page": "curve_by_label",
+      "depth": 4,
+      "i18n_t": "curve_by_label4_display",
+      "color": "#50c27e",
+      "labels": null,
+      "use": "y"
+    },
+    {
+      "page": "curve_by_label",
+      "depth": 5,
+      "i18n_t": "curve_by_label5_display",
+      "color": "#5f027e",
+      "labels": null,
+      "use": "y"
+    }
+  ],
+  "analysis": [
+    {
+      "page": "dataglunt",
+      "depth": 0,
+      "i18n_t": "dataglunt",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "latestflow",
+      "depth": 0,
+      "i18n_t": "latestflow",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "trendanalysis",
+      "depth": 0,
+      "i18n_t": "trendanalysis",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "advancedanalysis",
+      "depth": 0,
+      "i18n_t": "advancedanalysis",
+      "labels": [
+        "entrance",
+        "exit"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "comparebytime",
+      "depth": 0,
+      "i18n_t": "comparebytime",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "comparebyplace",
+      "depth": 0,
+      "i18n_t": "comparebyplace",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "comparebylabel",
+      "depth": 0,
+      "i18n_t": "comparebylabel",
+      "labels": [
+        "entrance",
+        "exit",
+        "outside",
+        "none"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "trafficdistribution",
+      "depth": 0,
+      "i18n_t": "trafficdistribution",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "age_group",
+      "depth": 0,
+      "i18n_t": "age_group",
+      "labels": [
+        0,
+        18,
+        30,
+        45,
+        65
+      ],
+      "use": "y"
+    },
+    {
+      "page": "traffic_reset_hour",
+      "depth": 0,
+      "i18n_t": "traffic_reset_hour",
+      "labels": [
+        "04:00"
+      ],
+      "use": "y"
+    }
+  ],
+  "report": [
+    {
+      "page": "yesterday",
+      "depth": 0,
+      "i18n_t": "yesterday",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "today",
+      "depth": 1,
+      "i18n_t": "today",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "recent7days",
+      "depth": 2,
+      "i18n_t": "recent7days",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "peakday",
+      "depth": 3,
+      "i18n_t": "peakday",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    },
+    {
+      "page": "weakday",
+      "depth": 4,
+      "i18n_t": "weakday",
+      "labels": [
+        "entrance"
+      ],
+      "use": "y"
+    }
+  ],
+  "realtime_screen": []
+}

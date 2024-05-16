@@ -1,21 +1,43 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs, parse_qsl, uses_params
-import os, sys, time
-import json
+# Copyright (c) 2022, Hans kim
 
-from functions_s import (configVars, dbconMaster, log, TZ_OFFSET)
-from query_db import getCountData
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+# CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse,   uses_params
+import os, sys, time
+import json, hashlib
+
+from functions_s import (configVars, dbconMaster, log,  _ROOT_DIR)
+from web_server.proc_api import proc_api
 
 port = 9999
 document_root = '../vue_codes/dist/'
-
-
 
 def proc_web(url_parts):
     path =  url_parts.path
     if url_parts.path == '/':
         path = '/index.html'
-    
     
     ext = path.split(".")[-1]
     if ext == 'html' or ext == 'htm':
@@ -42,56 +64,100 @@ def proc_web(url_parts):
 
     return type_t, body
 
-def proc_api(url_parts):
-    script_name = url_parts.path.split("/")[-1]
-    if script_name == 'query.do':
-      body = queryDB(url_parts.query)
 
-    return 'text/json', body.encode()
+def checkUserseq(headers):
+# cookie: _temp=123456; _selected_language=kor; _login_id=hanskim; _db_name=cnt_demo; _role=admin; _name=Hans%20Kim; _userseq=ca29e7325bf9825817bc185cb3435f49
+# accept-language: en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7,zh-CN;q=0.6,zh;q=0.5
+# accept-encoding: gzip, deflate
+# referer: http://192.168.1.252:5173/recentdata
+# user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+# accept: application/json, text/plain, */*
+# connection: close
+# host: 192.168.1.252:9999
 
-
-def queryDB(query):
-  # ./api/query.do?fr=dataGlunt&fm=json&labels=undefined&sq=0&st=0&view_by=hour&time_ref=04/22/2024~04/22/2024
-  response = {
-    "series": [
-      {
-        "name": "12weeks",
-        "data": [17318, 17533, 17011, 14286, 16300, 14629, 15242, 15303, 14481, 13325, 13201, 10547, 10932, 10742, 10182, 10906, 11091, 11639, 12111, 12796, 15229, 15593, 15707, 15118, 15651, 17159, 16572, 15224, 16816, 16655, 16288, 15774, 17089, 15928, 16205, 16125, 12199, 12779, 17427, 19313, 16492, 15135, 16891, 17236, 18272, 17782, 18858, 17643, 17626, 17551, 17663, 18580, 18538, 18906, 18080, 18427, 18297, 18320, 18707, 18576, 18660, 18368, 17126, 17754, 18000, 19165, 18128, 15556, 14425, 16549, 17326, 17455, 18078, 18287, 19064, 18414, 18270, 18319, 18484, 18521, 17802, 17433, 15871, 15358]
-      }
-    ],
-    "xaxis":{
-      "type":"datetime",
-      "categories": ["2024-01-29","2024-01-30","2024-01-31","2024-02-01","2024-02-02","2024-02-03","2024-02-04","2024-02-05","2024-02-06","2024-02-07","2024-02-08","2024-02-09","2024-02-10","2024-02-11","2024-02-12","2024-02-13","2024-02-14","2024-02-15","2024-02-16","2024-02-17","2024-02-18","2024-02-19","2024-02-20","2024-02-21","2024-02-22","2024-02-23","2024-02-24","2024-02-25","2024-02-26","2024-02-27","2024-02-28","2024-02-29","2024-03-01","2024-03-02","2024-03-03","2024-03-04","2024-03-05","2024-03-06","2024-03-07","2024-03-08","2024-03-09","2024-03-10","2024-03-11","2024-03-12","2024-03-13","2024-03-14","2024-03-15","2024-03-16","2024-03-17","2024-03-18","2024-03-19","2024-03-20","2024-03-21","2024-03-22","2024-03-23","2024-03-24","2024-03-25","2024-03-26","2024-03-27","2024-03-28","2024-03-29","2024-03-30","2024-03-31","2024-04-01","2024-04-02","2024-04-03","2024-04-04","2024-04-05","2024-04-06","2024-04-07","2024-04-08","2024-04-09","2024-04-10","2024-04-11","2024-04-12","2024-04-13","2024-04-14","2024-04-15","2024-04-16","2024-04-17","2024-04-18","2024-04-19","2024-04-20","2024-04-21"],
-    }
-  }
-  return json.dumps(response)
+# Host: 192.168.1.252:9999
+# Connection: keep-alive
+# Upgrade-Insecure-Requests: 1
+# User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+# Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+# Accept-Encoding: gzip, deflate
+# Accept-Language: en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7,zh-CN;q=0.6,zh;q=0.5
+# Cookie: _temp=123456
 
 
-# uses_params.append('scheme')
-# url = 'http://192.168.1.252:9999/api/query.do?fr=dashBoard&page=footfall&fm=json&sq=0&st=0&time_ref=04/21/2024'
-# # par = urlparse("scheme://some.domain/some/nested/endpoint;param1=value1;param2=othervalue2?query1=val1&query2=val2#fragment")
-# par = urlparse(url)
-# # ParseResult(scheme='scheme', netloc='some.domain', path='/some/nested/endpoint;param1=value1;param2=othervalue2', params='', query='query1=val1&query2=val2', fragment='fragment')
-# print (par)
-# sys.exit()
+  print (headers)
+  arr = {'host':'', 'connection': 'keep-alive', 'user-agent':'', 'cookie':'', 'cookies':{}}
+  for head in headers :
+    arr[head.lower()] = headers[head]
+  
+  if not arr.get('cookie'):
+    return False
+  
+  for key, val in [tuple(x.strip().split("=")) for x in arr['cookie'].split(";")]:
+      arr['cookies'][key] = val
+  # if headers.get('referer')  and headers['referer'].split("/")[-1] == 'login':
+  #   return True
+  # print (hashlib.md5((arr['cookies']['_login_id'] + 'hanskim').encode()).hexdigest() )
+  # print (arr['cookies']['_userseq'])
+  print (arr)
+  if not arr['cookies'].get('_userseq'):
+    return False
+  if not arr['cookies'].get('_login_id'):
+    return False
+  if arr['cookies']['_userseq'] == hashlib.md5((arr['cookies']['_login_id'] + 'hanskim').encode()).hexdigest():
+    return True
+  return False
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        url = self.path
-        for i in range(5):
-            url = url.replace("//","/")
-        url_parts = urlparse(url)
-        print(url_parts)
-        if url_parts.path.startswith("/api"):
-            type_t, body = proc_api(url_parts)
-        else:
-            type_t, body = proc_web(url_parts)
+  def do_GET(self):
+    url = self.path
+    for i in range(5):
+        url = url.replace("//","/")
+    url_parts = urlparse(url)
+    print('get', url_parts)    
 
-        self.send_response(200)
-        self.send_header('Content-Type', type_t)
-        self.end_headers()
-        self.wfile.write(body)
+    if url_parts.path.startswith("/api"):
+      type_t, body = proc_api(url_parts)
+    else:
+      type_t, body = proc_web(url_parts)
+
+    self.send_response(200)
+    self.send_header('Content-Type', type_t)
+    self.end_headers()
+    self.wfile.write(body)
         
+  def do_POST(self):
+    url = self.path
+    for i in range(5):
+        url = url.replace("//","/")
+    url_parts = urlparse(url)
+    print('post', url_parts)
+    chk_user = checkUserseq(self.headers)
+    print("cheked user", chk_user)
+
+    content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
+    post_data = self.rfile.read(content_length) # <--- Gets the data itself
+    arr = json.loads(post_data)
+
+    if url_parts.path.startswith("/api/login") :
+      type_t, body = proc_api(url_parts, arr)
+
+    elif url_parts.path.startswith("/api"):
+        if chk_user:
+          type_t, body = proc_api(url_parts, arr)
+        else :
+          type_t, body = 'text/json', json.dumps({'code': 403, 'message':'Unauthorized'}).encode()
+    else :
+      type_t, body = 'text/json', json.dumps({'code': 404, 'message':'Not found'}).encode()
+
+    self.send_response(200)
+    self.send_header('Content-Type', type_t)
+    self.end_headers()
+    self.wfile.write(body)
+
+
+print ("rootdir", _ROOT_DIR)
+
 web_dir = os.path.join(os.path.dirname(__file__), document_root)
 os.chdir(web_dir)
 httpd = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)

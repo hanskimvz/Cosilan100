@@ -688,3 +688,8 @@ CGIS = load_cgis()
 # print(MYSQL)
 # a = list_device()
 # print(a)
+
+def loadSettings(sel = 'db_table'):
+	with open (_ROOT_DIR+"/bin/setting.json", "r") as f:
+		body = f.read()
+	return json.loads(body)[sel]

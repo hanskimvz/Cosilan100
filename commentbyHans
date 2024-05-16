@@ -1,0 +1,15 @@
+
+python+ mariadb + vue 의 조합으로 개발
+python은 embedded package로 
+mariadb는 install 해야하고
+vue 는 vue3, 웬만하면 script setup으로.
+
+
+vue에 대한 이해
+
+현재는 vue + vite를 조합해서 개발중
+
+짐코딩의 기본편에 vue+vite에 대해 잘 나와 있슴.
+
+시간이 너무 많이 걸리는 작업이다. 
+우선 여기까지하고

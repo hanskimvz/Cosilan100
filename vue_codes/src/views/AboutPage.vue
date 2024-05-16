@@ -4,10 +4,6 @@
 </template>
 
 <script setup>
-import { useRoute } from 'vue-router'
-// import { ref, watch } from 'vue'
-const route = useRoute();
-console.log(route.path);
 </script>
 
 <style></style>

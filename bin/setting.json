@@ -1,0 +1,24 @@
+{ 
+  "db_table": {
+    "commonParam":        "common.params",
+    "commonSnapshot":     "common.snapshot",
+    "commonCount":        "common.counting_report_10min",
+    "commonHeatmap":      "common.heatmap",
+    "commonCountEvent":   "common.count_event",
+    "commonFace":         "common.face_thumbnail",
+    "commonUsers":        "common.users",
+
+    "customCount":        "count_tenmin_p",
+    "customHeatmap":      "heatmap",
+    "customAgeGender":    "age_gender",
+    "customSquare":       "square",
+    "customStore":        "store",
+    "customCamera":       "camera",
+    "customCounterLabel": "counter_label",
+    "customRtCount":      "realtime_counting",
+    "customLanguage":     "language",
+    "customWebConfig":    "web_config",
+    "customWeather":      "weather",
+    "customUsers":        "users"
+  }
+}

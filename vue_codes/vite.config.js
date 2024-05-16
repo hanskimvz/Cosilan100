@@ -17,5 +17,5 @@ export default defineConfig({
     proxy: {
         '/api': 'http://192.168.1.252:9999'
     }
-  }
+  },
 })
