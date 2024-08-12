@@ -25,7 +25,23 @@ document.title = t('_webpage_title');
 </script>
 
 <template>
-  <div class="wrapper">
+<div class="wrapper">
+
+    <!-- Sidebar -->
+    <sideBar v-if="$route.meta.page == 'main' || $route.meta.page =='admin'"></sideBar>
+    
+    <!-- Page Content -->
+    <div id="content">
+      <!-- <navBar v-if="$route.meta.page == 'main' || $route.meta.page !='account'"></navBar> -->
+      <!-- <div class="container p-0">
+        <div class="container-fluid p-0"> -->
+          <RouterView></RouterView>
+        <!-- </div>
+      </div> -->
+      <Footer v-if="$route.meta.page == 'main' || $route.meta.page == 'admin'"></Footer>
+    </div>
+  </div>
+  <!-- <div class="wrapper">
     <sideBar v-if="$route.meta.page == 'main' || $route.meta.page == 'admin'"></sideBar>
     <div class="main">
       <navBar v-show="$route.meta.page == 'main' || $route.meta.page == 'admin'"></navBar>
@@ -36,7 +52,7 @@ document.title = t('_webpage_title');
         <Footer v-if="$route.meta.page == 'main' || $route.meta.page == 'admin'"></Footer>
       </main>{{ $route.meta.page }}
     </div>
-  </div> 
+  </div>  -->
 </template>
 
 <!-- v-show: render and hidden
@@ -69,3 +85,18 @@ document.title = t('_webpage_title');
   </div> 
 </template>  -->
 
+<style scoped>
+.wrapper {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+}
+
+#content {
+  width: 100%;
+  padding: 0px;
+  min-height: 100vh;
+  transition: all 0.3s;
+}
+
+</style>

@@ -1,5 +1,58 @@
 <template>
-    <nav class="navbar sidebar-sticky navbar-expand navbar-light bg-white">
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+  <div class="container-fluid">
+    <div class="navbar-collapse">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0 d-flex">
+        <selectSite v-if="$route.meta.page=='main'"></selectSite>
+        <selectDate v-if="$route.meta.page=='main'"></selectDate>  
+      </ul>
+      <ul class="navbar-nav mb-2 me-2">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <img :src="img_cur" width="30" />
+          </a>
+          <ul class="dropdown-menu">
+            <li>
+              <span class="dropdown-item" @click="changeLocale('eng')" style="cursor:pointer;">
+                <img :src="img['eng']" alt="English" width="20" class="align-middle mr-1" />
+                <span class="align-middle px-2">{{$t('english')}}</span>
+              </span>
+            </li>
+            <li>
+              <span class="dropdown-item" @click="changeLocale('kor')" style="cursor:pointer;">
+                <img :src="img['kor']" alt="Korean" width="20" class="align-middle mr-1" />
+                <span class="align-middle">{{$t('korean')}}</span>
+              </span>
+            </li>
+            <li>
+              <span class="dropdown-item" @click="changeLocale('chi')" style="cursor:pointer;">
+                <img :src="img['chi']" alt="Chinese" width="20" class="align-middle mr-1" />
+                <span class="align-middle">{{$t('chinese')}}</span>
+              </span>
+            </li>
+          </ul>
+        </li>
+      </ul>
+
+      <ul class="navbar-nav mb-2 me-2">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ cookies.get('_name') }}
+          </a>
+          <ul class="dropdown-menu">
+            <li><RouterLink class="dropdown-item" to="/profile">{{$t('profile')}}</RouterLink></li>
+            <li><a class="dropdown-item" href="/admin/" target="admin_page">{{$t('admin_page')}}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/help/">{{$t('help')}}</a></li>
+            <li><a class="dropdown-item" href="/logout">{{$t('logout')}}</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+    <!-- <nav class="navbar sidebar-sticky navbar-expand navbar-light bg-white">
       <a class="sidebar-toggle d-flex mr-2"><i class="hamburger align-self-center"></i></a>
       <selectSite v-if="$route.meta.page=='main'"> </selectSite>
       <selectDate v-if="$route.meta.page=='main'"></selectDate>
@@ -44,7 +97,7 @@
           </li>
         </ul>
       </div>
-    </nav>
+    </nav> -->
     
 </template>
 <script setup>

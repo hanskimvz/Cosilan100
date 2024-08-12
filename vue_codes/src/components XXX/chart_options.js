@@ -1,20 +1,19 @@
 import { ref } from 'vue';
 
-const lineOption = {
+var chart_bar = null;
+var chart_line = null;
+
+const lineChartOptions = ref({
   chart: { 
-    id: 'chart',
-    zoom: {
-      enabled: false
-    },
-    toolbar: {
-      show: false
-    },
-    offsetX: 0
+      id: 'chart',
+      zoom: {
+        enabled: false
+      },
+      toolbar: {
+        show: false
+      },
   },
-  stroke: { 
-    curve: 'smooth', 
-    width: 5 
-  },  
+  stroke: { curve: 'smooth', width: 3 },  
   xaxis: {
     type: "datetime", //datetime
     categories: [],
@@ -31,42 +30,8 @@ const lineOption = {
         day: "MM dd",
         hour: "HH:mm",
       },
-      offsetX: 0,
     },	    
   }, 
-  yaxis: {
-    show: true,
-    showAlways: true,
-    labels: {
-      show: false,
-      align: 'right',
-      minWidth: 0,
-      maxWidth: 160,
-      style: {
-          colors: [],
-          fontSize: '12px',
-          fontFamily: 'Helvetica, Arial, sans-serif',
-          fontWeight: 400,
-          cssClass: 'apexcharts-yaxis-label',
-      },
-      offsetX: 0,
-      offsetY: 0,
-      rotate: 0,
-    },    
-    axisTicks: {
-      show: true,
-      borderType: 'solid',
-      color: '#78909C',
-      width: 6,
-      offsetX: 0, // Adjust this value to increase/decrease space between ticks and graph
-    },
-    axisBorder: {
-      show: true,
-      color: '#78909C',
-      offsetX: 0, // Adjust this value to increase/decrease space between axis and graph
-      offsetY: 0,
-    },
-  },
   dataLabels: {
     enabled: true,
     formatter: function (val, opts) {
@@ -97,7 +62,7 @@ const lineOption = {
     },    
   },  
   legend: { 
-    show: true, 
+    show:true, 
     showForSingleSeries: true, 
     position: "top", 
     offsetX: 0, 
@@ -120,40 +85,10 @@ const lineOption = {
     marker:{
       show:true
     },
-  },
-  grid: {
-    show: true,
-    borderColor: '#A0B4BE',
-    strokeDashArray: 2,
-    position: 'back',
-    xaxis: {
-        lines: {
-            show: false
-        }
-    },   
-    yaxis: {
-        lines: {
-            show: true
-        }
-    },  
-    padding: {
-        top: 10,
-        right: 40,
-        bottom: 0,
-        left: 40
-    },  
-}
-};
-
-function genHourlyCategories() {
-  const arr = []
-  for (let i = 0; i < 24; i++) {
-    arr.push(('0' + i).slice(-2) +':00');
   }
-  // console.log(arr)
-  return arr;
-}
-const lineOption_hourly = {
+});
+const lineChartSeries = ref([]);
+const lineOption = {
   chart: { 
     id: 'chart',
     zoom: {
@@ -162,144 +97,81 @@ const lineOption_hourly = {
     toolbar: {
       show: false
     },
-    offsetX: 0
-  },
-  stroke: { 
-    curve: 'smooth', 
-    width: 3 
-  },  
-  xaxis: {
-    type: "category", //datetime
-    categories: genHourlyCategories(),
-    convertedCatToNumeric: false,
-    tickPlacement: 'on', //'between',
-    position: 'bottom',
-    labels:{
-      show:true,
-      showDuplicates: true,
-      datetimeUTC: false,
-      datetimeFormatter: {
-        year: "yyyy",
-        month: "yyyy-MM",
-        day: "MM dd",
-        hour: "HH:mm",
-      },
-      offsetX: 0,
-    },	    
-  }, 
-  yaxis: {
+},
+stroke: { curve: 'smooth', width: 3 },  
+xaxis: {
+  type: "datetime", //datetime
+  categories: [],
+  convertedCatToNumeric: false,
+  tickPlacement: 'on', //'between',
+  position: 'bottom',
+  labels:{
+    show:true,
+    showDuplicates: true,
+    datetimeUTC: false,
+    datetimeFormatter: {
+      year: "yyyy",
+      month: "yyyy-MM",
+      day: "MM dd",
+      hour: "HH:mm",
+    },
+  },	    
+}, 
+dataLabels: {
+  enabled: true,
+  formatter: function (val, opts) {
+    if (val != null) {
+      return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+  },    
+  textAnchor: 'middle',
+  distributed: false,
+  offsetX: 0,
+  offsetY: -5,
+  background: {
+    enabled: false,
+    foreColor: '#f00',
+    padding: 4,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#fff',
+    opacity: 0.9,
+    dropShadow: {
+      enabled: false,
+      top: 1,
+      left: 1,
+      blur: 1,
+      color: '#000',
+      opacity: 0.45
+    }
+  },    
+},  
+legend: { 
+  show:true, 
+  showForSingleSeries: true, 
+  position: "top", 
+  offsetX: 0, 
+  floating: true,
+},
+tooltip: {
+  followCursor: false,
+  fillSeriesColor: true,
+  x: {
     show: true,
-    showAlways: true,
-    labels: {
-      show: true,
-      align: 'right',
-      minWidth: 0,
-      maxWidth: 160,
-      style: {
-          colors: [],
-          fontSize: '12px',
-          fontFamily: 'Helvetica, Arial, sans-serif',
-          fontWeight: 400,
-          cssClass: 'apexcharts-yaxis-label',
-      },
-      offsetX: 0,
-      offsetY: 0,
-      rotate: 0,
-    },    
-    axisTicks: {
-      show: false,
-      borderType: 'solid',
-      color: '#78909C',
-      width: 6,
-      offsetX: 0, // Adjust this value to increase/decrease space between ticks and graph
-    },
-    axisBorder: {
-      show: false,
-      color: '#78909C',
-      offsetX: 0, // Adjust this value to increase/decrease space between axis and graph
-      offsetY: 0,
-    },
+    format: 'yyyy/MM/dd HH:mm',
   },
-  dataLabels: {
-    enabled: true,
+  y: {
     formatter: function (val, opts) {
       if (val != null) {
         return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       }
-    },    
-    textAnchor: 'middle',
-    distributed: false,
-    offsetX: 0,
-    offsetY: -5,
-    background: {
-      enabled: false,
-      foreColor: '#f00',
-      padding: 4,
-      borderRadius: 2,
-      borderWidth: 1,
-      borderColor: '#fff',
-      opacity: 0.9,
-      dropShadow: {
-        enabled: false,
-        top: 1,
-        left: 1,
-        blur: 1,
-        color: '#000',
-        opacity: 0.45
-      }
-    },    
-  },  
-  legend: { 
-    show: true, 
-    showForSingleSeries: true, 
-    position: "top", 
-    offsetX: 0, 
-    floating: true,
+    },       
   },
-  tooltip: {
-    followCursor: false,
-    fillSeriesColor: true,
-    x: {
-      show: true,
-      format: 'yyyy/MM/dd HH:mm',
-    },
-    y: {
-      formatter: function (val, opts) {
-        if (val != null) {
-          return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        }
-      },       
-    },
-    marker:{
-      show:true
-    },
+  marker:{
+    show:true
   },
-  grid: {
-    show: true,
-    borderColor: '#A0B4BE',
-    strokeDashArray: 2,
-    position: 'back',
-    xaxis: {
-        lines: {
-            show: false
-        }
-    },   
-    yaxis: {
-        lines: {
-            show: true
-        }
-    },  
-    padding: {
-        top: 10,
-        right: 40,
-        bottom: 0,
-        left: 40
-    },  
 }
 };
-// for(let i=0; i<24; i++) {
-//   lineOption_hourly.xaxis.categories.push(('0' + i).slice(-2) + ":00");
-// }
 
 
 const lineOptionXX = {
@@ -734,4 +606,4 @@ const AheatmapOption = {
     x: { format: "HH:mm" }
   }
 }
-export {lineOption, lineOption_hourly, barOption, AheatmapOption };
+export {lineOption, lineChartOptions,lineChartSeries, barOption, AheatmapOption };

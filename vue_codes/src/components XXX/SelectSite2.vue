@@ -1,32 +1,23 @@
 <template>
-  <div v-show="!($route.path == '/sitemap' || $route.path == '/about')" class="block">
-    <div class="form-inline d-none d-sm-inline-block">
-      <select class="form-control mr-sm-2" id="square" v-model="place.sq_code" @change="listStore('#store')">
+  <div>
+    <div class="form-inline d-none d-sm-inline-block " >
+      <select class="form-control mr-sm-2" id="square1" v-model="place.sq_code1"  @change="listStore('#store1')">
         <option value=0>{{$t('all_square')}}</option>
       </select>
-      <select class="form-control mr-sm-2" id="store" v-model="place.st_code">
+      <select class="form-control mr-sm-2" id="store1" v-model="place.st_code1">
         <option value=0>{{$t('all_store')}}</option>
       </select>
     </div>
-    <div v-show="$route.path==='/comparebyplace'">
-      <div class="form-inline d-none d-sm-inline-block " >
-        <select class="form-control mr-sm-2" id="square1" v-model="place.sq_code1"  @change="listStore('#store1')">
-          <option value=0>{{$t('all_square')}}</option>
-        </select>
-        <select class="form-control mr-sm-2" id="store1" v-model="place.st_code1">
-          <option value=0>{{$t('all_store')}}</option>
-        </select>
-      </div>
-      <div class="form-inline d-none d-sm-inline-block ">
-        <select class="form-control mr-sm-2" id="square2" v-model="place.sq_code2" @change="listStore('#store2')">
-          <option value=0>{{$t('all_square')}}</option>
-        </select>
-        <select class="form-control mr-sm-2" id="store2" v-model="place.st_code2">
-          <option value=0>{{$t('all_store')}}</option>
-        </select>
-      </div>
+    <div class="form-inline d-none d-sm-inline-block ">
+      <select class="form-control mr-sm-2" id="square2" v-model="place.sq_code2" @change="listStore('#store2')">
+        <option value=0>{{$t('all_square')}}</option>
+      </select>
+      <select class="form-control mr-sm-2" id="store2" v-model="place.st_code2">
+        <option value=0>{{$t('all_store')}}</option>
+      </select>
     </div>
   </div>
+</div>
 </template>
 
 <script setup>

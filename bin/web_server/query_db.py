@@ -82,7 +82,7 @@ def getLanguagePack(db_name='cnt_demo', action='pack'):
   }
   sq = "select * from " + db_name + "." + MYSQL['customLanguage'] + " "
   sq_pack = "select * from " + db_name + "." + MYSQL['customLanguage'] + " where flag='y' "
-  # print (sq)
+  print (sq)
   dbCon = dbconMaster()
   with dbCon:
     cur = dbCon.cursor(pymysql.cursors.DictCursor)
@@ -213,16 +213,16 @@ def getParamByViewBy(view_by = 'hourly', date_from='', date_to=''):
     'daily':{
       'group': "year, month, day, counter_label",
       'interval' : 3600*24,
-      'date_format' : "%Y-%m-%d",
+      'date_format' : "%Y-%m-%d 00:00",
       'js_tooltip_format' : "yyyy/MM/dd",
-      'q_datetime' : "concat(year, '-', lpad(month,2,0), '-', lpad(day,2,0))"
+      'q_datetime' : "concat(year, '-', lpad(month,2,0), '-', lpad(day,2,0), ' ', '00:00')"
     },
     'monthly':{
       'group': "year, month, counter_label",
       'interval' : 3600*24*29,
       'date_format' : "%Y-%m",
       'js_tooltip_format' : "yyyy/MM",
-      'q_datetime' : "concat(year, '-', lpad(month,2,0))"
+      'q_datetime' : "concat(year, '-', lpad(month,2,0) )"
     },
     'tenmin':{
       'group' : "year, month, day, hour, min, counter_label",
@@ -281,12 +281,14 @@ def getCountData(post_data):
     if not st_code or st_code == '0':
       continue
     sfilter.append("store_code='" + st_code + "'")
-
-  arr = []
+  
   arr_label = getWebConfig(post_data['db_name'], post_data['page'])['labels']
+  arr = []
   for l in arr_label:
     arr.append("counter_label='" + l + "'")
+  if arr:    
     sfilter.append("(" + " or ".join(arr) + ")")
+  # sfilter.append(["(" + " or ".join(f"counter_label='{label}'" for label in arr_label) + ")"]  )
 
   if sfilter:
     arr_where.append("(" + " and ".join(sfilter) + ")")

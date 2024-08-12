@@ -1,4 +1,177 @@
+<script setup>
+
+import { ref, onMounted, reactive, computed } from 'vue';
+import axios from 'axios';
+import { useRoute, useRouter } from 'vue-router';
+
+const route = useRoute();
+const router = useRouter();
+
+const _logo_image = ref();
+
+
+let sidemenus = [];
+const sidemenuOpen = reactive({})
+const currentTab = route.path.split("/")[1];
+
+const toggleSidemenu = (menu) => {
+  sidemenus.forEach(item => {
+    if(menu != item.page) {
+      sidemenuOpen[item.page] = false;
+    }
+  });
+  sidemenuOpen[menu] = !sidemenuOpen[menu]
+}
+
+onMounted( async ()=>{
+  await router.isReady();
+  // console.log(route.meta.page)
+  let url;
+  if (route.meta.page == 'admin'){
+    url ='/api/query?data=webconfig&fmt=json&page=admin';
+  }
+  else if (route.meta.page == 'main') {
+    url ='/api/query?data=webconfig&fmt=json&page=main';
+  }
+
+  axios.get(url)
+  .then(result => {
+    // console.log(result.data);
+    _logo_image.value = result.data.logo;
+    sidemenus = result.data.body;
+    sidemenus.forEach((item, i) => {
+      sidemenuOpen[item.page] = false;
+      if(item.path && currentTab == item.path.split("/")[1]){
+        sidemenuOpen[item.page] = true;
+      }
+      sidemenus[i].class = 'nav-bar';
+      if(item.page == 'split_line') {
+        sidemenus[i].class = 'sidebar-header';
+      }
+    });
+
+    // console.log(sidemenus);
+  })
+  .catch(error => {
+      console.log(error);
+      // router.push("/login")
+  });
+});
+
+</script>
+
+
 <template>
+<nav id="sidebar">
+  <div class="sidebar-header">
+    <img :src="_logo_image" height="40" class="rounded mx-auto d-block" />
+  </div>
+
+  <ul class="list-unstyled components">
+    <li v-for="(m, i) in sidemenus" :key="i" :class="m.class">
+      <span v-if="m.use && m.page == 'split_line'">{{ $t(m.i18n_t) }}</span>
+      <RouterLink v-else-if="(m.use && !m.children)"  class="sidebar-link" :to="m.to" :class="{ 'selecttab': route.path == m.to }">
+        <i class="bi px-2" :class="m.icon"></i><span>{{ $t(m.i18n_t) }}</span>
+      </RouterLink>  
+
+      <a v-else-if="m.use && m.children" href="#" @click.prevent="toggleSidemenu(m.page)">
+        <i class="bi px-2" :class="m.icon"></i><span>{{ $t(m.i18n_t) }}</span>
+        <i :class="['bi', sidemenuOpen[m.page] ? 'bi-chevron-down' : 'bi-chevron-right', 'float-end']"></i>
+      </a>
+
+      <ul v-if="(m.children && m.use)" class="collapse list-unstyled" :class="{ 'show': sidemenuOpen[m.page] }">
+        <li v-for="(mx, j) in m.children" :key="j">
+          <RouterLink v-if="(mx.use)" class="sidebar-link" :to="mx.to" :class="{ 'selecttab': route.path == mx.to }">
+            {{ $t(mx.i18n_t) }}
+          </RouterLink>  
+        </li>
+      </ul>
+      
+    </li>
+  </ul>
+  <!-- {{$route.path}} -->
+</nav>
+
+
+</template>
+<style scoped>
+
+#sidebar {
+  min-width: 200px;
+  max-width: 200px;
+  min-height: 100vh;
+  background: #304156;
+  color: #fff;
+  transition: all 0.3s;
+}
+.sidebar-header{
+  background:transparent;
+  color:#adb5bd;
+  padding:.375rem 1.5rem;
+  font-size:.75rem
+}
+/*#sidebar.active {
+  margin-left: -250px;
+}
+*/
+#sidebar .sidebar-header {
+  padding: 10px;
+  background: #304156;
+  align:"center"
+}
+
+#sidebar ul.components {
+  padding: 12px 0;
+  border-bottom: 1px solid #47748b;
+}
+
+#sidebar ul p {
+  color: #fff;
+  padding: 10px;
+}
+
+#sidebar ul li a {
+  padding: 10px;
+  font-size: 1.0em;
+  display: block;
+  color: #fff;
+  text-decoration: none;
+  animation: 1000,
+}
+
+#sidebar ul li a:hover {
+  color: #7386D5;
+  background: #d3c3f3;
+}
+
+#sidebar ul li.active > a, a[aria-expanded="true"] {
+  color: #fff;
+  background: #6d7fcc;
+}
+
+ul ul a {
+  font-size: 0.9em !important;
+  padding-left: 30px !important;
+  background: #204156;
+}
+
+.selecttab {
+  background: #6d7fcc;
+}
+
+@media (max-width: 768px) {
+  #sidebar {
+    margin-left: -250px;
+  }
+  #sidebar.active {
+    margin-left: 100;
+  }
+}
+</style>
+
+
+
+<!-- <template>
   <nav class="sidebar sidebar-sticky">
     <div class="sidebar-content ">
       <a class="sidebar-brand text-center mb-0 mr-4" href="/">
@@ -138,4 +311,4 @@ const default_body = {
     { "page": "feedback",      "parent": 0,  "depth": 0,    "i18n_t": "feedback",     "icon": "pen-tool",          "to": "/feedback",  "use": false    }
   ]
 };
-</script>
+</script> -->

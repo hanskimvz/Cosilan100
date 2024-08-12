@@ -56,8 +56,6 @@ const routes = [
   { path: '/login',                    component: () => import('@/views/account/Login.vue'),              meta: {page: "account"} },
   { path: '/logout',                   component: () => import('@/views/account/Logout.vue'),             meta: {page: "account"} },
   { path: '/pagesResetPassword',       component: () => import('@/views/account/pagesResetPassword.vue'), meta: {page: "account"} }, 
-
-  { path: '/test',       component: () => import('@/views/Test.vue'), meta: {page: "main"} }, 
 ];
 
 

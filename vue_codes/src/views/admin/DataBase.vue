@@ -1,35 +1,65 @@
 <template>
-  <div class="row">
-    <div class="col-12">
-      <div class="float-right mr-3" >TOTAL: {{ TOTAL_RECORD }}</div>
-      <div class="col-12 col-lg-5 d-flex" >
-        <nav>
-          <ul class="pagination pagination-sm">
-            <li class="page-item"  v-for=" p in pages" :key="p" :class="p==page_no ? 'active' : ''"><span class="page-link" @click="movePage(p)" style="cursor:pointer;">{{ p }}</span></li>
-          </ul>
-        </nav>
-      </div>
-      <table class="table table-striped table-sm table-bordered table-hover" >
-        <thead>
-          <tr>
-            <th v-for="(col,i) in table_head" :key="i">{{ col }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, i) in table_body" :key="i">
-            <td v-for="(col, j) in table_body[i]" :key="j" >{{ col }}</td>
-          </tr>
-        </tbody>
-      </table>
+  <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="navbar-collapse ">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+      </ul>
+      <navLanguage /><navDropdown />
     </div>
+  </nav>
+  
+  <div class="main">
+    <main class="content">
+      <div class="container-fluid mt-2">
+        <div class="row">
+          <div class="col-12">
+            <div class="clearfix">
+              <div class="float-start">
+                <div class="navbar-collapse col-lg-5 d-flex" >
+                  <ul class="pagination pagination-sm">
+                    <li class="page-item"  v-for="p in pages" :key="p" :class="p == page_no ? 'active' : ''">
+                      <span class="page-link" @click="movePage(p)" style="cursor:pointer;">{{ p }}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div class="float-end">TOTAL: {{ TOTAL_RECORD }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-12">
+            <table class="table table-striped table-sm table-bordered table-hover" >
+              <thead>
+                <tr>
+                  <th v-for="(col,i) in table_head" :key="i">{{ col }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, index) in table_body" :key="index">
+                  <td v-for="(cell, cellKey) in row" :key="cellKey" 
+                    :class="getCellClass(cellKey, cell, row)" 
+                    v-html="getCellContent(cellKey, cell, row)">
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUpdated } from 'vue';
+import { ref, watch, onMounted, onUpdated, computed } from 'vue';
 import axios from 'axios';
 import { _tz_offset } from '@/store/nav_store.js'
 import { useRoute, useRouter } from 'vue-router'
+
+import navLanguage from '@/layout/NavLanguage.vue';
+import navDropdown from '@/layout/NavDropdown.vue';
+
 
 const route = useRoute();
 const router = useRouter();
@@ -63,9 +93,92 @@ const table_head = ref();
 const table_body = ref();
 const TOTAL_RECORD = ref(0);
 const pages = ref();
+const class_ref = ref([]);
+
+const processedData = ref([]);
+
+const massageTable = () => {
+  table_body.value.forEach((row, idx) =>{
+    console.log(row);
+    // processedData[idx][]
+  })
+} 
+
+// const massageTable = () => {
+// processedData = computed(() => {
+//   return table_body.value.map(row => {
+//     if (db_name === 'common' && table_name === 'params') {
+//       return row.map((cell, index) => {
+//         if (index === 1) {
+//           return `<a href="./devicedetail?${cell}">${cell}</a>`;
+//         }
+//         if (index >= 4 && index <= 10) {
+//           return cell === 'n' ? '<font color=#AAAAAA>n</font>' : 'y';
+//         }
+//         return cell;
+//       });
+//     } else if (db_name === 'common' && table_name === 'face_thumbnail') {
+//       return row.map((cell, index) => index === 4 ? `<img src="${cell}" height="100" />` : cell);
+//     } else if (db_name.value === 'common' && table_name.value === 'snapshot') {
+//       return row.map((cell, index) => index === 2 ? `<img src="${cell}" width="200" />` : cell);
+//     } else if (db_name.value === 'common' && table_name.value === 'heatmap') {
+//       return row.map((cell, index) => index === 4 ? 'draw_heatmap' : cell);
+//     } else if (db_name.value === CUSTOM_DB && table_name.value === 'heatmap') {
+//       return row.map((cell, index) => index === 4 ? 'draw heatmap' : cell);
+//     }
+//     return row;
+//   });
+// });
+// }
+
+function getCellClass(cellKey, cell, row) {
+  if (db_name === 'common' && table_name === 'params') {
+    if (['PRO', 'SURV', 'CNT', 'face', 'hm', 'crpt', 'mac'].includes(cellKey)) {
+      return 'text-center';
+    }
+    if (cellKey === 'status') {
+      if (cell) {
+        if (cell.includes('days,')) {
+          return 'badge text-bg-danger';
+        }
+        const [hours, minutes] = cell.split(':').map(Number);
+        if (hours > 0 || minutes > 0) {
+          return 'badge text-bg-warning';
+        }
+        return 'badge text-bg-success';
+      }
+    }
+  }
+  return '';
+}
+
+function getCellContent(cellKey, cell, row) {
+  if (db_name === 'common' && table_name === 'params' ) {
+    if(cellKey=='device_info') {
+      return `<a href="./devicedetail?${cell}" target="_device_info">${cell}</a>`;
+    }
+    else if (['PRO', 'SURV', 'CNT', 'face', 'hm', 'crpt', 'mac'].includes(cellKey)) {
+      return cell == 'n' ? '<font color=#AAAAAA>n</font>' : 'y';
+    }
+    else if (cellKey === 'status' && cell && cell.includes('days,')) {
+      return cell.replace(' days,', 'D');
+    }
+  }
+  else if (db_name === 'common' && table_name === 'snapshot') {
+    if(cellKey == 'body') {
+      return `<img src="${cell}" width="200" />`;
+    }
+  }
+  else if (db_name === 'common' && table_name === 'face_thumbnail') {
+    if(cellKey == 'thumbnail') {
+      return `<img src="${cell}" height="100" />`;
+    }
+  }
+  return cell;
+}
 
 
-const massageTable= (()=>{
+const massageTableX= (()=>{
   console.log(db_name, table_name);
   const tags = $('tr:has(td)');
   for (let i=0; i<tags.length; i++){
@@ -194,7 +307,7 @@ const getDBData=(()=>{
       table: table_name,
       fields: fields,
       search: search,
-      orderby:orderby,
+      orderby: orderby,
       page_no: page_no,
       page_max: page_max,
       format : 'json'

@@ -27,11 +27,8 @@
 import { useCookies } from 'vue3-cookies';
 const {cookies} = useCookies();
 
-cookies.remove('_login_id');
-cookies.remove('_db_name');
-cookies.remove('_role');
-cookies.remove('_selected_language');
-cookies.remove('_name');
-cookies.remove('_userseq');
-
+['_login_id','_db_name', '_role', '_selected_language-Token', '_name', '_userseq'] .forEach((cookie)=>{
+  cookies.set(cookie, '');
+  cookies.remove(cookie);
+}) 
 </script>

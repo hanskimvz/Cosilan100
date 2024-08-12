@@ -1,4 +1,6 @@
-import '@/assets/app.css';
+// import '@/assets/app.css';
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap-icons/font/bootstrap-icons.css";
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
@@ -9,6 +11,8 @@ import axios from 'axios';
 
 import App from './App.vue';
 import router from '@/components/routes.js';
+
+import VueApexCharts from "vue3-apexcharts";
 // import routes from '@/components/routes.js';
 
 const pinia = createPinia();
@@ -31,8 +35,9 @@ async function setI18n () {
   return i18n;
 }
 
-app.use(pinia)
-app.use(router)
+app.use(pinia);
+app.use(router);
+app.use(VueApexCharts);
 
 setI18n().then((i18n)=>{
   app.use(i18n);
@@ -56,4 +61,6 @@ setI18n().then((i18n)=>{
 // app.use(i18n);
 // app.mount('#app');
 
-import '@/assets/app.js';
+// import '@/assets/app.js';
+// import "apexcharts/dist/apexcharts.js";
+import "bootstrap/dist/js/bootstrap.js";
