@@ -1,0 +1,56 @@
+{
+    "version": {
+        "bin": "1.0.0",
+        "web": "1.0.0"
+    },
+    "MONGODB": {
+        "host": "192.168.1.250",
+        "user": "ct_user",
+        "password": "13579",
+        "db": "cnt_common",
+        "port": 5090,
+        "tables": {
+            "common_data": "misc_data",
+            "common_device": "device_route",
+            "common_cgis": "cgis_write",
+            "common_user": "user_route",
+            "floating_user": "floating_users",
+            "floating_device": "floating_devices",
+            "user": "users",
+            "params": "params",
+            "count_tenmin": "count_tenmin",
+            "count_hour": "count_hour",
+            "count_day": "count_day",
+            "count_week": "count_week",
+            "count_month": "count_month",
+            "count_year": "count_year",
+            "count_total": "count_total",
+            "device_tree": "device_tree",
+            "age_gender": "age_gender",
+            "snapshot": "snapshot",
+            "heatmap": "heatmap",
+            "rtscreen": "rtscreen",
+            "web_config": "web_config",
+            "language": "language"
+        }
+    },
+    "SERVER": {
+        "host": "0.0.0.0",
+        "port": 5004
+    },
+    "HTTP_SERVER": {
+        "host": "0.0.0.0",
+        "port": 9999
+    },
+    "TIMEZONE": {
+        "area": "Seoul",
+        "tz_offset": 32400
+    },
+    "log": {
+        "file": "log/cnt_common.log",
+        "level": "INFO"
+    },
+    "cgis": "config/cgis.json",
+    "probe_interval": 600,
+    "set_date": false
+}

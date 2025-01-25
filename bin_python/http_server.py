@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Hans kim(hanskimvz@gmail.com)
+# Copyright (c) 2022, Hans kim
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -23,18 +23,16 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse,   uses_params
 import os, sys, time
 import json, hashlib
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse
 
-from functions_s import (CONFIG)
+from functions_s import (configVars, dbconMaster, log,  _ROOT_DIR)
 from web_server.proc_api import proc_api
-from web_server.users import checkUserseq
 
-HTTP_PORT = CONFIG['HTTP_SERVER']['port']
-HTTP_HOST = CONFIG['HTTP_SERVER']['host']
-
+port = 9999
+document_root = '../vue_codes/dist/'
 
 def proc_web(url_parts):
     path =  url_parts.path
@@ -66,6 +64,50 @@ def proc_web(url_parts):
 
     return type_t, body
 
+
+def checkUserseq(headers):
+# cookie: _temp=123456; _selected_language=kor; _login_id=hanskim; _db_name=cnt_demo; _role=admin; _name=Hans%20Kim; _userseq=ca29e7325bf9825817bc185cb3435f49
+# accept-language: en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7,zh-CN;q=0.6,zh;q=0.5
+# accept-encoding: gzip, deflate
+# referer: http://192.168.1.252:5173/recentdata
+# user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+# accept: application/json, text/plain, */*
+# connection: close
+# host: 192.168.1.252:9999
+
+# Host: 192.168.1.252:9999
+# Connection: keep-alive
+# Upgrade-Insecure-Requests: 1
+# User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36
+# Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+# Accept-Encoding: gzip, deflate
+# Accept-Language: en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7,zh-CN;q=0.6,zh;q=0.5
+# Cookie: _temp=123456
+
+
+  print (headers)
+  arr = {'host':'', 'connection': 'keep-alive', 'user-agent':'', 'cookie':'', 'cookies':{}}
+  for head in headers :
+    arr[head.lower()] = headers[head]
+  
+  if not arr.get('cookie'):
+    return False
+  
+  for key, val in [tuple(x.strip().split("=")) for x in arr['cookie'].split(";")]:
+      arr['cookies'][key] = val
+  # if headers.get('referer')  and headers['referer'].split("/")[-1] == 'login':
+  #   return True
+  # print (hashlib.md5((arr['cookies']['_login_id'] + 'hanskim').encode()).hexdigest() )
+  # print (arr['cookies']['_userseq'])
+  print (arr)
+  if not arr['cookies'].get('_userseq'):
+    return False
+  if not arr['cookies'].get('_login_id'):
+    return False
+  if arr['cookies']['_userseq'] == hashlib.md5((arr['cookies']['_login_id'] + 'hanskim').encode()).hexdigest():
+    return True
+  return False
+
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
   def do_GET(self):
     url = self.path
@@ -90,21 +132,19 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         url = url.replace("//","/")
     url_parts = urlparse(url)
     print('post', url_parts)
-    body = b''
     chk_user = checkUserseq(self.headers)
     print("cheked user", chk_user)
 
     content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
     post_data = self.rfile.read(content_length) # <--- Gets the data itself
-    arr_post = json.loads(post_data)
-
+    arr = json.loads(post_data)
 
     if url_parts.path.startswith("/api/login") :
-      type_t, body = proc_api(url_parts, arr_post)
+      type_t, body = proc_api(url_parts, arr)
 
     elif url_parts.path.startswith("/api"):
         if chk_user:
-          type_t, body = proc_api(url_parts, arr_post)
+          type_t, body = proc_api(url_parts, arr)
         else :
           type_t, body = 'text/json', json.dumps({'code': 403, 'message':'Unauthorized'}).encode()
     else :
@@ -116,12 +156,10 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     self.wfile.write(body)
 
 
-# print ("rootdir", _ROOT_DIR)
+print ("rootdir", _ROOT_DIR)
 
-# web_dir = os.path.join(os.path.dirname(__file__), document_root)
-# os.chdir(web_dir)
-httpd = HTTPServer((HTTP_HOST, HTTP_PORT), SimpleHTTPRequestHandler)
-print(f'Server running on port:{HTTP_PORT}, document_root:', os.getcwd())
+web_dir = os.path.join(os.path.dirname(__file__), document_root)
+os.chdir(web_dir)
+httpd = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+print(f'Server running on port:{port}, document_root:', os.getcwd())
 httpd.serve_forever()
-
-print ('end')

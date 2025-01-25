@@ -26,22 +26,20 @@ import os, time, sys
 import base64
 import threading
 
-from functions_s import (CONFIG, active_cgi, list_device, log, CGIS, message, addSlashes, checkAuthMode)
-from parse_functions import (parseParam, parseCountReport, parseHeatmapData)
-from db_functions import (updateSimpleParam, updateParam, updateSnapshot, updateCountReportTenmin, updateHeatmap, getDeviceListFromDB, getDeviceInfoFromDB, getWriteParams, completeWriteParam, updateCountReportExt)
+from functions_s import (active_cgi, list_device, checkAuthMode, configVars, addSlashes, log, modifyConfig, CGIS, message)
+from parse_functions import parseParam, parseCountReport, parseHeatmapData
+from db_functions import(MYSQL, getWriteParam, putWriteParam, updateSimpleParam, updateParam, updateSnapshot, getLatestTimestamp, updateCountingReport, updateHeatmap, getDeviceListFromDB, getDeviceInfoFromDB)
+# from cgis import arr_cgi_str, set_datetime_str
 
-def writeParam():
-    arr_cmd = getWriteParams()
-    arr_ids = []
-    for cmd in arr_cmd:
-        authkey, dev = checkAuthMode(cmd['ip'], cmd['port'], cmd['user_id'], cmd['user_pw'], cmd['device_family'])
-        ret = active_cgi(cmd['ip'], authkey, cmd['cmd'], cmd['port'])
-        if ret:
-            arr_ids.append(cmd['_id'])
-        else:
-            log.error(cmd['ip'] + " write param failed")
-    if arr_ids:
-        completeWriteParam(arr_ids)
+_TZ_NAME = "Seoul"
+# _TZ_NAME = "Hong_Kong"
+
+def putParam(device_ip=None, port=80, authkey=None, cgis=[]):
+    data = []
+    for cgi in cgis:
+        rs = active_cgi(device_ip, authkey, cgi.strip(), port)
+        data.append(rs)
+    return data
 
 def getParam(device_ip=None, port=80, authkey=None,  device_family='IPN'):
     if not device_family:
@@ -67,11 +65,9 @@ def getSnapshot(device_ip=None, port=80, authkey=None, device_family='IPN', form
 
 def getCountReport(device_ip=None, port=80, authkey=None,  device_family='IPN', from_t='2022/01/01', to_t='now'):
     if not device_family:
-        return False 
-    cgi_str = CGIS["query_device"]["countreport"][device_family].replace("_FROM_T_", from_t).replace("_TO_T_", to_t)
-    data = active_cgi(device_ip, authkey, cgi_str, port)
-    if not data or data.find(b"Not enough data") >0 :
-        return []
+        return False    
+    # cgi_str = arr_cgi_str["countreport"][device_family] %(from_t, to_t)
+    data = active_cgi(device_ip, authkey, CGIS["query_device"]["countreport"][device_family] %(from_t, to_t), port)
     data = data.replace(b'Time:', b'Records:')
     return (parseCountReport(data))
 
@@ -89,20 +85,28 @@ def getHeatmap(device_ip=None, port=80, authkey=None,  device_family='IPN', from
     return (parseHeatmapData(data))
 
 def testGetFunctions(dev_ip, userid, userpw):
-    authkey, dev = checkAuthMode(dev_ip, 80, userid, userpw)
+    authkey, dev = checkAuthMode(dev_ip, userid, userpw)
     print (authkey, dev)
-    # param = getParam(device_ip=dev_ip, port=80, device_family=dev, authkey= authkey)
-    # print (param)
-    # snapshot = getSnapshot(device_ip=dev_ip, port=80, device_family=dev, authkey= authkey, format='b64')
-    # print (snapshot)
+    param = getParam(device_ip=dev_ip, port=80, device_family=dev, authkey= authkey)
+    print (param)
+    snapshot = getSnapshot(device_ip=dev_ip, port=80, device_family=dev, authkey= authkey, format='b64')
+    print (snapshot)
     crpt = getCountReport(device_ip=dev_ip, port=80, authkey=authkey,  device_family=dev, from_t='2022/01/01', to_t='now')
     print (crpt)
-    # hm = getHeatmap(device_ip=dev_ip, port=80, authkey=authkey,  device_family=dev, from_t='2022-01-01', to_t='now')
-    # print(hm)
+    hm = getHeatmap(device_ip=dev_ip, port=80, authkey=authkey,  device_family=dev, from_t='2022-01-01', to_t='now')
+    print(hm)
 
-# testGetFunctions("192.168.3.10", "root", "pass")
+# testGetFunctions("192.168.219.18", "root", "pass")
 # sys.exit()
 
+def writeParam(device_info='', device_ip=None, port=80, authkey=None,  device_family='IPN'):
+    regdate = time.strftime("%Y-%m-%d %H:%M:%S")
+    arr_cmd = getWriteParam(device_info)
+    if (arr_cmd):
+        message ("write cgi commands to %s at %s" %(device_info, regdate))
+        putParam(device_ip=device_ip, port=port, authkey=authkey, cgis=arr_cmd)
+        putWriteParam(device_info, [])
+    return True  
 
 def setDatetimeToDevice(device_ip=None, port=80, authkey=None,  device_family='IPN'):
     if not device_family:
@@ -150,7 +154,6 @@ def testSetDatetime(dev_ip, userid, userpw) :
 def searchDeviceToDB():
 # {'idx': 0, 'usn': 'HA0A0073A', 'url': 'http://192.168.1.58:49152/upnpdevicedesc.xml', 'location': '192.168.1.58', 'mac': '001323A0073A', 'model': 'NS202HD', 'brand': 'CAP'}
     arr_dev = list_device()
-    regdate = time.strftime("%Y-%m-%d %H:%M:%S")
     
     for dev in arr_dev:
         if not (dev['mac'] and dev['brand'] and dev['model']) :
@@ -159,118 +162,89 @@ def searchDeviceToDB():
             message (msg)
             continue
 
-        # message(dev)
-        dev['device_info'] = "mac=%s&brand=%s&model=%s" %(dev['mac'], dev['brand'], dev['model'])
-        dev['regdate'] = regdate
-        dev['last_access'] = regdate
-        x = updateSimpleParam(dev)
-        if x:
-            print('updateSimpleParam succeed', dev)
-        else: 
-            print('db_name is none', dev)
-            # dev['authkey'], dev['device_family'] = checkAuthMode(dev['ip'], int(dev['port']), dev['user_id'], dev['user_pw'])
-            # param = getParam(device_ip=dev['ip'], port=int(dev['port']), authkey=dev['authkey'], device_family=dev['device_family'])
-            # param['snapshot'] = getSnapshot(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'], format='b64')
-            # updateParam(param)
-
-    strn = "browsing  %d devices and info to db succeed" %len(arr_dev)
+        message(dev)
+        device_info = "mac=%s&brand=%s&model=%s" %(dev['mac'], dev['brand'], dev['model'])
+        updateSimpleParam(device_info, dev['usn'], dev['location'])
+    strn = "browsing devices %d and info to db succeed" %len(arr_dev)
     message (strn)
     log.info(strn)
 
-    return True
-
 def procActive():
-    n = 0
+    n= 0 
+    set_date_flag = False
     arr_dev = getDeviceListFromDB()
-    # print('arr_dev', arr_dev)
-    for dev in arr_dev:
-        print()
-        if not dev['online']:
-            print('not online', dev)
-            continue
-        if dev.get('db_name') and dev.get('db_name') == 'none':
-            print('db_name is none', dev)
-            continue
+    if int(configVars('software.status.datetime_sync')) + 3600*24 < int(time.time()) :
+        set_date_flag = True
+        log.info("Setting device time")
 
+    for dev in arr_dev:
+        if not dev['online']:
+            continue
+        # print(dev)
         if not ( dev['authkey'] and dev['device_family']):
             strn = "%s: No authkey or device family" %dev['ip']
             message(strn)
             log.info(strn)
             continue
-        
-        # print('dev', dev)
-        # try:
-        # (device_info=dev['device_info'], device_ip=dev['ip'], port=80, authkey=dev['authkey'],  device_family=dev['device_family'])
 
-        # except Exception as e:
-        #     msg = "fail to write params: {0}".format(str(e))
-        #     message(msg)
-        #     log.error(msg)
+        try:
+            writeParam(device_info=dev['device_info'], device_ip=dev['ip'], port=80, authkey=dev['authkey'],  device_family=dev['device_family'])
+
+        except Exception as e:
+            msg = "fail to write params: {0}".format(str(e))
+            message(msg)
+            log.error(msg)
         
-        # if CONFIG['set_date_flag']:
-        #     setDatetimeToDevice(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'])
-        param = dev.copy()
-        param_data = getParam(device_ip=dev['ip'], port=int(dev['port']), authkey=dev['authkey'], device_family=dev['device_family'])
-        if param_data:  # param_data가 False가 아닐 때만 업데이트
-            param.update(param_data)
-            param['snapshot'] = getSnapshot(device_ip=dev['ip'], port=int(dev['port']), authkey=dev['authkey'], device_family=dev['device_family'], format='b64')
-            if param:
-                updateParam(param)
-            else:
-                log.error(dev['ip'] + " param retrieve wrong")
+        if set_date_flag:
+            setDatetimeToDevice(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'])
+        
+        param = getParam(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'])
+        if param:
+            updateParam(device_info=dev['device_info'], param=param)
         else:
-            log.error(dev['ip'] + " failed to get parameters")
+            log.error(dev['ip'] + " param retrieve wrong")
 
-        dev.update(
-            getDeviceInfoFromDB(dev['db_name'], dev['device_info'], fields=['device_info', 'authkey', 'heatmap', 'countrpt', 'enable_snapshot', 'enable_countrpt', 'enable_heatmap', 'user_id', 'user_pw', 'last_ts_count', 'last_ts_heatmap', 'last_ts_snapshot'])
-        )
-        # print('dev',dev)
-        if dev.get('countrpt')=='y' and dev.get('enable_countrpt') == 'y':
-            last_ts_count = dev['last_ts_count'] if dev.get('last_ts_count') else 0
-            from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(last_ts_count))
-            to_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(int(time.time())//600*600 + int(CONFIG['TIMEZONE']['tz_offset'])))
-            readflag = int(time.time()) + int(CONFIG['TIMEZONE']['tz_offset']) - last_ts_count
-            print(from_t, to_t, readflag)
-
-            if readflag > 600:
-                dev['authkey'], dev['device_family'] = checkAuthMode(dev['ip'], int(dev['port']), dev['user_id'], dev['user_pw'], dev['device_family'])
-                crpt = getCountReport(dev['ip'], int(dev['port']), dev['authkey'], dev['device_family'], from_t, to_t)
-                if crpt:
-                    updateCountReportTenmin(db_name=dev['db_name'], device_info=dev['device_info'], arr_crpt=crpt)
-                else :
-                    log.error(dev['ip'] + "CRTP is bool or wrong")
-
-        if dev.get('enable_snapshot') == 'y':
-            last_ts_snapshot = dev['last_ts_snapshot'] if dev.get('last_ts_snapshot') else 0
-            if int(time.time()) + int(CONFIG['TIMEZONE']['tz_offset']) - last_ts_snapshot >= 3600:
-                if param.get('snapshot'):
-                    updateSnapshot(db_name=dev['db_name'], device_info=dev['device_info'], snapshot=param['snapshot'])
-                else:
-                    log.error(dev['ip'] + " snapshot data not available")
-
-        if dev.get('heatmap') == 'y' and dev.get('enable_heatmap') == 'y':
-            last_ts_heatmap = dev['last_ts_heatmap'] if dev.get('last_ts_heatmap') else 0
-            from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(last_ts_heatmap))
-            to_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(int(time.time())//3600*3600 + int(CONFIG['TIMEZONE']['tz_offset'])))
-
-            if int(time.time()) + int(CONFIG['TIMEZONE']['tz_offset']) - last_ts_heatmap >= 3600:
-                dev['authkey'], dev['device_family'] = checkAuthMode(dev['ip'], int(dev['port']), dev['user_id'], dev['user_pw'], dev['device_family'])
-                hm = getHeatmap(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'], from_t=from_t, to_t=to_t)
-                if hm:
-                    updateHeatmap(db_name=dev['db_name'], device_info=dev['device_info'], arr_hm=hm)
-                else :
-                    log.error(dev['ip'] + "Heatmap is bool or wrong")
-
+        snapshot = getSnapshot(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'], format='b64')
+        if snapshot:
+            updateSnapshot(device_info=dev['device_info'], snapshot=snapshot)
+        else:
+            log.error(dev['ip'] + " snapshot retrieve wrong")
         
+        #get counting report and heatmap report where db_name !=none and function=y
+        dev_info = getDeviceInfoFromDB(dev['device_info'])
+        if dev_info: # False if not in db
+            if dev_info['db_name'] != 'none':
+                if dev_info['countrpt'] == 'y':
+                    from_t, dt, readflag, ts = getLatestTimestamp(MYSQL['commonCounting'], device_info=dev['device_info'])
+                    if readflag > 600:
+                        print("active.counting:", dev['device_info'], from_t, readflag, ts)
+                        crpt = getCountReport(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'], from_t=from_t, to_t='now')
+                        if crpt:
+                            updateCountingReport(device_info=dev['device_info'], arr_record=crpt)
+                        else :
+                            log.error(dev['ip'] + "CRTP is bool or wrong")
 
+                if dev_info['heatmap'] == 'y':
+                    from_t, dt, readflag, ts = getLatestTimestamp(MYSQL['commonHeatmap'], device_info=dev['device_info'])
+                    if readflag >3600:
+                        ts = time.mktime(dt)+3600
+                        from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.localtime(ts))
+                        print("active.heatmap:", dev['device_info'], from_t, readflag, ts)
+                        hm = getHeatmap(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'], from_t=from_t, to_t='now')
+                        if hm:
+                            updateHeatmap(device_info=dev['device_info'], arr_record=hm)
+                        else :
+                            log.error(dev['ip'] + "Heatmap is bool or wrong")
+
+
+        modifyConfig('software.status.last_device_access', int(time.time()))
         n+=1
 
-    # if set_date_flag:
-    #     modifyConfig('software.status.datetime_sync', int(time.time()))
-    #     set_date_flag = False
+    if set_date_flag:
+        modifyConfig('software.status.datetime_sync', int(time.time()))
+        set_date_flag = False
 
     return n
-
 
 class thActiveCountingTimer():
     def __init__(self, t=60):
@@ -291,17 +265,13 @@ class thActiveCountingTimer():
         str_s = "======== Active Counting, starting %d ========" %self.i
         log.info (str_s)
         message (str_s)
-        # every 1 minute
-        writeParam()
         searchDeviceToDB()
 
         n = procActive()
-        # n = 1
         te = time.time()
-        updateCountReportExt('cnt_demo')
-        # self.t = 300 - int(te - ts) 
-        # if self.t  < 0:
-        #     self.t  = 1
+        self.t = 300 - int(te - ts) 
+        if self.t  < 0:
+            self.t  = 1
         str_s = "Online %d, elaspe time: %d, need %d sec sleep" %(n, (te-ts), self.t )
         message (str_s)
         log.info(str_s)
@@ -330,13 +300,7 @@ class thActiveCountingTimer():
         self.cancel()
 
 if __name__ == '__main__':
-    # searchDeviceToDB()
-    # print(getDeviceListFromDB())
-    # import json
-    # with open('sample_arr_crpt.js', 'r') as f:
-    #     arr_crpt = json.loads(f.read())
-    # print (arr_crpt)
-    # updateCountReportTenmin(db_name='cnt_demo',device_info='mac=001323A00322&brand=CAP&model=IPN3502HDIR', arr_crpt=arr_crpt)
+    dev_ip = "192.168.3.38" ;    userid = 'root';     userpw = 'pass'
     # procActive()
     tc = thActiveCountingTimer()
     tc.start()

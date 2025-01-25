@@ -26,8 +26,9 @@ import os, time, sys
 import datetime
 import pymysql
 import json, re, hashlib
-from functions_s import (CONFIG, MONGO, db_connect, log)
+from functions_s import (loadSettings, dbconMaster, log, TZ_OFFSET)
 
+MYSQL = loadSettings('db_table')
 
 def procLogin(db_name='cnt_demo', post_data= {}):
   if not post_data.get('id'):

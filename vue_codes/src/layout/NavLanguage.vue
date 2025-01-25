@@ -1,5 +1,5 @@
 <template>
-  <ul class="navbar-nav mb-2 me-2">
+  <!-- <ul class="navbar-nav mb-2 me-2">
     <li class="nav-item dropdown">
       <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
         <img :src="img_cur" width="30" />
@@ -25,7 +25,36 @@
         </li>
       </ul>
     </li>
-  </ul>
+  </ul> -->
+  <ul class="navbar-nav mb-2 me-2 px-4 align-end">
+    <li class="nav-item dropdown">
+      <div class="dropdown" @mouseover="isOpen = true" @mouseleave="isOpen = false">
+        <span class="dropdown-toggle"><img :src="img_cur" width="30" /></span>
+        <ul v-if="isOpen" class="dropdown-menu">
+          <li>
+          <span class="dropdown-item" @click="changeLocale('eng')" style="cursor:pointer;">
+            <img :src="img['eng']" alt="English" width="20" class="align-middle mr-1" />
+            <span class="align-middle px-2">{{$t('english')}}</span>
+          </span>
+        </li>
+        <li>
+          <span class="dropdown-item" @click="changeLocale('kor')" style="cursor:pointer;">
+            <img :src="img['kor']" alt="Korean" width="20" class="align-middle mr-1" />
+            <span class="align-middle">{{$t('korean')}}</span>
+          </span>
+        </li>
+        <li>
+          <span class="dropdown-item" @click="changeLocale('chi')" style="cursor:pointer;">
+            <img :src="img['chi']" alt="Chinese" width="20" class="align-middle mr-1" />
+            <span class="align-middle">{{$t('chinese')}}</span>
+          </span>
+        </li>
+        </ul>
+      </div>
+    </li>
+  </ul>  
+
+
 </template>
 
 <script setup>
@@ -38,6 +67,8 @@ import { useI18n } from 'vue-i18n';
 
 const { t, locale } = useI18n();
 const { cookies } = useCookies();
+
+const isOpen = ref(false);
 
 let img_cur = ref();
 
@@ -85,3 +116,44 @@ onMounted(()=>{
 
 </script>
 
+<style scoped>
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-toggle {
+  padding: 0px 5px 10px 10px;
+  /* background-color: #007bff; */
+  /* color: white; */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0px;
+  /* left: -100px; */
+  z-index: 1000;
+  display: block;
+  min-width: 10rem;
+  padding: 0.5rem 30;
+  margin: 0.125rem 0 0;
+  font-size: 1rem;
+  color: #212529;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0.25rem;
+}
+
+.dropdown-item {
+  padding: 0.25rem 1rem;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background-color: #d2e1f0;
+}
+</style>

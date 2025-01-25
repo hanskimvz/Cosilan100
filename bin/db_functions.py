@@ -23,293 +23,342 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os, time, sys
-import json
-from functions_s import (configVars, dbconMaster, checkAuthMode, modifyConfig, is_online, message, log,TZ_OFFSET)
-
-MYSQL = { 
-    "commonParam": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.param'),
-    "commonSnapshot": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.snapshot'),
-    "commonCounting": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.counting'),
-    "commonHeatmap": configVars('software.mysql.db') +"." + configVars('software.mysql.db_common.table.heatmap'),
-    "commonCountEvent": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.count_event'),
-    "commonFace": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.face'),
-    "customCamera": "camera",
-    "customCounterLabel": "counter_label",
-    "customRtCount": "realtime_screen",
-}
+import threading
+from datetime import datetime, date
+from functions_s import (MONGO, CONFIG, db_connect,  checkAuthMode, ts_to_tss, message, log)
 
 
-def getWriteParam(device_info):
+def getWriteParams():
     arr_cmd = []
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()    
-        sq = "select write_cgi_cmd from " + MYSQL['commonParam'] + " where device_info = '%s' and write_cgi_cmd is not null and write_cgi_cmd != '' limit 1 " %device_info
-        cur.execute(sq)
-        row = cur.fetchone()
-    
-        if row:
-            arr_cgi_cmd = row[0].splitlines()
-            for cgi_cmd in arr_cgi_cmd:
-                if not cgi_cmd.strip():
-                    continue
-                arr_cmd.append(cgi_cmd.strip())
-    
+    regdate = time.strftime("%Y-%m-%d %H:%M:%S")
+    client = db_connect()
+    db = client[MONGO['db']]
+    collection = {
+        'cgis': db[MONGO['commonCgis']],
+        'params': db[MONGO['commonDevice']]
+    }
+    rows = collection['cgis'].find({'flag':True})
+    for row in rows:
+        dev = collection['params'].find_one({'device_info':row['device_info']})
+        if not dev:
+            log.error("Retrieve Param faild from %s at %s" %(row['device_info'], regdate))
+            client.close()
+            return False
+        dev_x =client[dev['db_name']][MONGO['customParam']].find_one({'device_info':row['device_info']},{'ip':1, 'port':1, 'user_id':1, 'user_pw':1})   
+        if not dev_x:
+            log.error("Retrieve Param faild from %s at %s" %(row['device_info'], regdate))
+            client.close()
+            return False
+        dev.update (dev_x)
+        arr_cmd.append({'_id':row['_id'], 'ip':dev['ip'], 'port':dev['port'], 'user_id':dev['user_id'], 'user_pw':dev['user_pw'], 'cmd':row['write_cgi_cmd']})
+
+    client.close()
     return arr_cmd
 
-def putWriteParam(device_info, arr_cmd=[]):
-    cmd = '\n'.join(arr_cmd)
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor() 
-        sq = "update " + MYSQL['commonParam'] + " set write_cgi_cmd='%s' where device_info = '%s' " %(cmd, device_info)
-        print(sq)
-        # cur.execute(sq)
-        # dbconn0.commit()
-        cur.close()
-
+def completeWriteParam(arr_ids):
+    client = db_connect()
+    db = client[MONGO['db']]
+    collection = db[MONGO['commonCgis']]
+    collection.update_many({'_id':{'$in':arr_ids}}, {'$set':{'flag':False, 'complete_date':time.strftime("%Y-%m-%d %H:%M:%S")}})
+    client.close()
     return True
 
-
-def updateSimpleParam(device_info, usn, url):
+def convert_to_serializable(obj):
+    try:
+        if isinstance(obj, dict):
+            return {k: convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_to_serializable(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            return str(obj)
+        return obj
+        
+    except Exception as e:
+        print(f"convert_to_serializable error: {str(e)}")
+        return str(obj)
+    
+def updateSimpleParam(device):
     # device_info, usn, url only. for browsing devices
     regdate = time.strftime("%Y-%m-%d %H:%M:%S")
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
-        sq = "select pk, url from " + MYSQL['commonParam'] + " where device_info=%s" 
-        cur.execute(sq, device_info)
-        rowa = cur.fetchone()
+    client = db_connect()
+    db = client[MONGO['db']]
+    collection = db[MONGO['commonDevice']]
+    dev = collection.find_one({'device_info':device['device_info']})
+    if dev:
+        collection.update_one({'device_info':device['device_info']}, {'$set':{'ip':device['ip'], 'port':device['port'], 'url':device['url'], 'regdate':regdate, 'last_access':regdate, 'method':'active'}})
 
-        sq = "select pk from " + MYSQL['commonSnapshot'] + " where device_info=%s"
-        cur.execute(sq, device_info)
-        rowb = cur.fetchone()
+    else:
+        collection.insert_one({'device_info':device['device_info'], 'ip':device['ip'], 'port':device['port'], 'url':device['url'], 'last_access':regdate, 'db_name': 'none', 'method':'active', 'flag':False})
 
-        if not rowa:
-            sq = "insert into " + MYSQL['commonParam'] + "(device_info, usn, url, initial_access) values(%s, %s, %s, %s)" 
-            cur.execute(sq, (device_info, usn, url, regdate))
-        elif url != rowa[1]:
-            sq = "update " + MYSQL['commonParam'] + " set url=%s where device_info=%s"
-            cur.execute(sq, (url, device_info) )
-            
-        if not rowb:
-            sq = "insert into " + MYSQL['commonSnapshot'] + "(device_info, regdate) values(%s, %s)"
-            cur.execute(sq, (device_info, regdate))  
-        dbconn0.commit()
-    return True
+    client.close()
 
-def updateParam(device_info='', param ={}) :
+    return False if dev['db_name'] == 'none' else True
+
+def updateParam(param) :
+    # if param['db_name'] == 'none':
+    #     return False
     regdate = time.strftime("%Y-%m-%d %H:%M:%S")
-    print ("updating param from %s at %s to DB" %(device_info, regdate))
-
-    if not param['ret'] :
-        log.error("Retrieve Param faild from %s at %s" %(device_info, regdate))
+    if not param.get('ret') :
+        log.error("Retrieve Param faild from %s at %s" %(param['device_info'], regdate))
         return False
+    # print ('param:', param)
+   
+    print ("updating param from %s at %s to DB" %(param['device_info'], regdate))
 
-    if not device_info:
-        device_info = "mac=%s&brand=%s&model=%s" %(param['mac'], param['brand'], param['model'])
+    if not param.get('device_info'):
+        param['device_info'] = "mac=%s&brand=%s&model=%s" %(param['mac'], param['brand'], param['model'])
     
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
-        sq = "select pk, method from " + MYSQL['commonParam'] + " where device_info = %s limit 1" 
-        cur.execute(sq, device_info)
-        row = cur.fetchone()
-        if not row : # new device
-            if len(param['usn']) >9:
-                param['usn'] = param['usn'][:9]
-            sq = "insert into " + MYSQL['commonParam'] + "(device_info, initial_access, usn, product_id) values(%s, %s, %s, %s)"
-            cur.execute(sq, (device_info, regdate, param['usn'], param['productid']))
-            dbconn0.commit()
+    client = db_connect()
+    if param.get('db_name') == 'none':
+        collection = client[MONGO['db']][MONGO['floatingDevice']]
+    else:
+        collection = client[param['db_name']][MONGO['customParam']]
+    num_records = collection.count_documents({'device_info':param['device_info']})
+    if len(param['usn']) >9:
+        param['usn'] = param['usn'][:9]
+    
+    if param.get('authkey'):
+        param['authkey'] = convert_to_serializable(param['authkey'])
 
-            sq = "select pk, method from " + MYSQL['commonParam'] + " where device_info = %s limit 1" 
-            cur.execute(sq, device_info)
-            row = cur.fetchone()
+    if num_records:
+        collection.update_one({'device_info':param['device_info']}, {'$set': param})
+    else:
+        collection.insert_one(param)
+    client.close()
+    # log.info ("%s update param OK" %device_info)
+    # print ("update params from %s at %s" %(device_info, regdate))
 
-        sq = "update " + MYSQL['commonParam'] + " set product_id=%s, lic_pro=%s, lic_surv=%s, lic_count=%s, heatmap=%s, countrpt=%s, face_det=%s, macsniff=%s, param=%s, last_access=%s where device_info=%s" 
-
-        cur.execute(sq, (param['productid'], param['lic_pro'], param['lic_surv'], param['lic_count'], param['heatmap'], param['countrpt'], param['face_det'], param['macsniff'], param['param'], regdate, device_info))
-
-        if row[1] == 'auto':
-            sq = "update " + MYSQL['commonParam'] + " set url=%s where device_info=%s "
-            cur.execute(sq, (param['url'], device_info))
-
-        dbconn0.commit()
-        # log.info ("%s update param OK" %device_info)
-        # print ("update params from %s at %s" %(device_info, regdate))
- 
     return param
 
 
-def updateSnapshot(device_info='', snapshot=''):
+def updateSnapshot(db_name='none', device_info='', snapshot=''):
+    if db_name == 'none':
+        return False
     regdate = time.strftime("%Y-%m-%d %H:%M:%S")
     strn = "updating snapshot from %s at %s to DB" %(device_info, regdate)
     message(strn)
     log.info(strn)
  
-    record = [snapshot, regdate]
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
-        sq = "select pk from  " + MYSQL['commonSnapshot'] + " where device_info = '%s' order by pk desc limit 1" %(device_info)
-        cur.execute(sq)
-        row = cur.fetchone()
+    client = db_connect()
+    collection = client[db_name][MONGO['customSnapshot']]
+    num_records = collection.count_documents({'device_info':device_info})
+    if num_records>1000:
+        collection.find_one_and_update(
+            {'device_info':device_info},
+            {'$set':{'snapshot':snapshot, 'timestamp':int(time.time()), 'regdate':regdate}},
+            sort=[('timestamp', 1)]
+        )
+    else:
+        collection.insert_one({'device_info':device_info, 'snapshot':snapshot, 'timestamp':int(time.time()), 'regdate':regdate})
+    
+    collection = client[db_name][MONGO['customParam']]
+    collection.update_one({'device_info':device_info}, {'$set':{'last_ts_snapshot':int(time.time())}})
+    client.close()
 
-        if row:
-            sq = "update " + MYSQL['commonSnapshot'] + " set body=%s, regdate=%s where pk=%s " 
-            record.append(row[0])
-
-        else:
-            sq = "insert into " + MYSQL['commonSnapshot'] + "(body, regdate, device_info) values(%s, %s, %s)" 
-            record.append(device_info)
-        record = tuple(record)
-        cur.execute(sq, record)
-        dbconn0.commit()
-    log.info("%s: snapshot updated" %device_info)
     return True    
 
-def getLatestTimestamp(table, device_info):
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
-        sq = "select timestamp, datetime from %s where device_info='%s' order by timestamp desc limit 1 " %(table, device_info)
-        # print(sq)
-        cur.execute(sq)
-        row = cur.fetchone()
-        # from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(row[0])) #count
-        # from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(row[0]+3600)) #heatmap
-        if row :
-            dt = time.strptime(str(row[1]), "%Y-%m-%d %H:%M:%S")
-            # from_t = time.strftime("%Y/%m/%d%%20%H:%M", dt)
-            from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(row[0]))
-            # readflag = int(time.time()) - int(row[0])
-            readflag = int(time.time()) + TZ_OFFSET - int(row[0])
-            ts = int(row[0])
-
-        else :
-            from_t = "2018/11/12%2000:00"
-            dt = time.strptime(from_t, "%Y/%m/%d%%20%H:%M")
-            readflag = 115200
-            ts = 0
-        return from_t, dt, readflag, ts
-
-
-def updateCountingReport(device_info='', arr_record=[]):
+def updateCountReportTenmin(db_name='none',device_info='', arr_crpt=[]):
+    if db_name == 'none':
+        return False
     regdate = time.strftime("%Y-%m-%d %H:%M:%S")
     strn =  "updating counting report from %s at %s to DB" %(device_info, regdate)
     message(strn)
     log.info(strn)
-   
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
-        for record_dict in arr_record:
-            sq = "select pk from " + MYSQL['commonCounting'] + " where timestamp < %d and flag='y' order by timestamp asc limit 1" %(int(time.time()) - int(configVars('software.mysql.recycling_time')))
 
-            cur.execute(sq)
-            rowa = cur.fetchone()
-            record = [device_info, regdate, record_dict['timestamp'], record_dict['datetime'], record_dict['ct_name'], record_dict['ct_value']]
+    client = db_connect()
+    db = client[db_name]
 
-            if rowa:
-                record.append(rowa[0])
-                sq = "update " + MYSQL['commonCounting'] + " set device_info= %s, regdate=%s, timestamp = %s, datetime= %s, counter_name= %s, counter_val= %s, flag='n' where pk = %s" 
-
-            else:
-                sq = "insert into " + MYSQL['commonCounting'] + "(device_info, regdate, timestamp, datetime, counter_name, counter_val) values(%s, %s, %s , %s, %s, %s)" 
-
-            # print (sq, record)
-            cur.execute(sq, tuple(record))
+    # find device_info, counter_name, counter_label
+    arr_label = dict()
+    collection = db[MONGO['customDeviceTree']]
+    rows = collection.find({'device_info': device_info})
+    for row in rows:
+        arr_label[row['counter_name']] = row['counter_label'] if row.get('counter_label') else ''
+        camera_code = row['camera_code']   if row.get('camera_code')   else ''
+        camera_name = row['camera_name']   if row.get('camera_name')   else ''
+        store_code  = row['store_code']    if row.get('store_code')    else ''
+        store_name  = row['store_name']    if row.get('store_name')    else ''
+        square_code = row['square_code']   if row.get('square_code')   else ''
+        square_name = row['square_name']   if row.get('square_name')   else ''
+    # print (arr_label)
+    ts_min = 0xFFFFFFFF
+    ts_max = 0
+    for crpt in arr_crpt:
+        if crpt['timestamp'] < ts_min:
+            ts_min = crpt['timestamp']
+        if crpt['timestamp'] > ts_max:
+            ts_max = crpt['timestamp']        
+        crpt['device_info'] = device_info
+        crpt['ct_label']    = arr_label[crpt['ct_name']]
+        crpt['camera_code'] = camera_code
+        crpt['camera_name'] = camera_name
+        crpt['store_code']  = store_code
+        crpt['store_name']  = store_name
+        crpt['square_code'] = square_code
+        crpt['square_name'] = square_name
+        crpt['status']      = 0
+        crpt['year'], crpt['month'], crpt['day'], crpt['hour'], crpt['min'], crpt['wday'], crpt['week'] = ts_to_tss(crpt['timestamp'])
+    
+    print ('ts_min:%d, ts_max:%d' %(ts_min, ts_max))
         
-        log.info( "%s:%s:%d updated" %(device_info, MYSQL['commonCounting'], len(arr_record)))
-		
-        dbconn0.commit()
+    collection = db[MONGO['customCount']['tenmin']]
+    rows = collection.find({'device_info': device_info, 'timestamp': {'$gte': ts_min}}) 
+    
+    # rows와 arr_crpt에서 중복 제거
+    arr_ts_ct = set()
+    for row in rows:
+        arr_ts_ct.add("%s_%d_%s" %(row['device_info'], row['timestamp'], row['ct_name']))
+    
+    # print(arr_ts_ct)
+    
+    # arr_crpt에서 rows의 timestamp_ct_name와 중복되지 않는 데이터만 arr_record에 추가
+    arr_record = []
+    for crpt in arr_crpt:
+        if not ("%s_%d_%s" %(crpt['device_info'], crpt['timestamp'], crpt['ct_name']) in arr_ts_ct):
+            arr_record.append(crpt)
+    for arr in arr_record:
+        print (arr)
+    if arr_record:
+        collection = db[MONGO['customCount']['tenmin']]
+        try:
+            collection.insert_many(arr_record)
+            log.info(f"{device_info}: customCount, insert_many OK")
+            print (f"{device_info}: {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_min))} ~ {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_max))} customCount, insert_many OK")
+        except Exception as e:
+            log.error(f"{device_info}: customCount, insert_many failed: {str(e)}")
+            print (f"{device_info}: {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_min))} ~ {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_max))} customCount, insert_many failed: {str(e)}")
+    
+        collection = db[MONGO['customParam']]
+        try:
+            collection.update_one({'device_info': device_info}, {'$set': {'last_ts_count': ts_max}})
+            print (f"{device_info}: customParam, set last_ts_count OK")
+        except Exception as e:
+            print (f"{device_info}: customParam, set last_ts_count failed: {str(e)}")
+            log.error(f"{device_info}: customParam, set last_ts_count failed: {str(e)}")
+
+    client.close()
     return True          
 
-def updateHeatmap(device_info='', arr_record=[]):
+
+
+def updateHeatmap(db_name='none', device_info='', arr_hm=[]):
+    if db_name == 'none':
+        return False
     regdate = time.strftime("%Y-%m-%d %H:%M:%S")
     strn = "updating heatmap reports from %s at %s to DB" %(device_info, regdate)
     message(strn)
     log.info(strn)
 
-    dbconn0 = dbconMaster()
-    with dbconn0:      
-        cur = dbconn0.cursor()
-        # for record in arr_record:
-        for record_dict in arr_record:
-            sq = "select pk from " + MYSQL['commonHeatmap'] + " where timestamp < %d and flag = 'y' order by timestamp asc limit 1 " %(int(time.time()) - int(configVars('software.mysql.recycling_time'))) 
-            cur.execute(sq)
-            rowa = cur.fetchone()
+    client = db_connect()
+    db = client[db_name]
 
-            record = [device_info, regdate, record_dict['timestamp'], record_dict['datetime'], record_dict['heatmap']]
-            if rowa:
-                record.append(rowa[0])
-                sq = "update " + MYSQL['commonHeatmap'] + " set device_info=%s, regdate=%s, timestamp=%s, datetime=%s, body_csv=%s, flag='n' where pk =%s"
-            else :
-                sq = "insert into " + MYSQL['commonHeatmap'] + "(device_info, regdate, timestamp, datetime, body_csv)  values(%s, %s, %s, %s, %s)"
-        	
-            record = tuple(record)
-            # print (sq, record)
-            cur.execute(sq, record)
+    collection = db[MONGO['customDeviceTree']]
+    rows = collection.find_one({'device_info': device_info})
+    camera_code = rows['camera_code']   if rows.get('camera_code')   else ''
+    camera_name = rows['camera_name']   if rows.get('camera_name')   else ''
+    store_code = rows['store_code']    if rows.get('store_code')    else ''
+    store_name = rows['store_name']    if rows.get('store_name')    else ''
+    square_code = rows['square_code']   if rows.get('square_code')   else ''
+    square_name = rows['square_name']   if rows.get('square_name')   else ''
 
-        log.info( "%s:%s:%d updated" %(device_info, MYSQL['commonHeatmap'], len(arr_record)))
-        dbconn0.commit()
+    ts_min = 0xFFFFFFFF
+    ts_max = 0
+    for hm in arr_hm:
+        if hm['timestamp'] < ts_min:
+            ts_min = hm['timestamp']
+        if hm['timestamp'] > ts_max:
+            ts_max = hm['timestamp']
 
+        hm['device_info'] = device_info
+        hm['camera_code'] = camera_code
+        hm['camera_name'] = camera_name
+        hm['store_code']  = store_code
+        hm['store_name']  = store_name
+        hm['square_code'] = square_code
+        hm['square_name'] = square_name
+        hm['status']      = 0
+        hm['year'], hm['month'], hm['day'], hm['hour'], hm['min'], hm['wday'], hm['week'] = ts_to_tss(hm['timestamp'])
+
+    print ('ts_min:%d, ts_max:%d' %(ts_min, ts_max))
+
+    arr_ts_hm = set()
+    collection = db[MONGO['customHeatmap']]
+    rows = collection.find({'device_info': device_info, 'timestamp': {'$gte': ts_min}}) 
+    for row in rows:
+        arr_ts_hm.add("%s_%d" %(row['device_info'], row['timestamp']))
+    print (arr_ts_hm)
+
+    arr_record = []
+    for hm in arr_hm:
+        if not ("%s_%d" %(hm['device_info'], hm['timestamp']) in arr_ts_hm):
+            arr_record.append(hm)
+    # print (arr_record)
+
+    if arr_record:
+        collection = db[MONGO['customHeatmap']]
+        try:
+            collection.insert_many(arr_record)
+            log.info(f"{device_info}: customHeatmap, insert_many OK")
+            print (f"{device_info}: {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_min))} ~ {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_max))} customHeatmap, insert_many OK")
+        except Exception as e:
+            log.error(f"{device_info}: customHeatmap, insert_many failed: {str(e)}")
+            print (f"{device_info}: {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_min))} ~ {time.strftime('%Y-%m-%d %H:%M:%S',time.gmtime(ts_max))} customHeatmap, insert_many failed: {str(e)}")
+
+        collection = db[MONGO['customParam']]
+        try:
+            collection.update_one({'device_info': device_info}, {'$set': {'last_ts_heatmap': ts_max}})
+            print (f"{device_info}: customParam, set last_ts_heatmap OK")
+        except Exception as e:
+            print (f"{device_info}: customParam, set last_ts_heatmap failed: {str(e)}")
+            log.error(f"{device_info}: customParam, set last_ts_heatmap failed: {str(e)}")
+
+    client.close()
     return True   
 
-def getDeviceListFromDB():
+
+def getDeviceListFromDB(flag=None):
     arr_dev = []
-    arr_rs = []
-    nums_online=0
+    client = db_connect()
+    collection = client[MONGO['db']][MONGO['commonDevice']]
+    rows = collection.find({'method':'active'}) if flag == None else collection.find({'flag': flag})
+    
+    for row in rows:
+        if row.get('db_name') == 'none':
+            continue
+        collection = client[row['db_name']][MONGO['customParam']]
+        dev = collection.find_one({'device_info': row['device_info']})
 
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
-        sq = "select pk, device_info, url, user_id, user_pw from " + MYSQL['commonParam'] + " order by last_access desc limit 250"
-        cur.execute(sq)
-        rows = cur.fetchall()
-        
-        for row in rows:
-            arr_rs.append(row)
-
-        modifyConfig('software.status.connecting_device', len(arr_dev))
-
-    for dev in arr_rs:
-        pk, device_info, dev_ip, user_id, user_pw = dev
-        if is_online(dev_ip):
-            online = True
-            nums_online += 1
-            authkey, devfamily = checkAuthMode(dev_ip, user_id, user_pw )
-        else :
-            online = False
-            authkey, devfamily = "", ""
+        if not dev.get('user_id'):
+            dev['user_id'] = 'root'
+        if not dev.get('user_pw'):
+            dev['user_pw'] = 'pass'        
+        authkey, devfamily = checkAuthMode(dev['ip'], dev['port'], dev['user_id'], dev['user_pw'])
        
         arr_dev.append({
-            "device_info": device_info,
-            "ip": dev_ip,
-            "user_id": user_id,
-            "user_pw": user_pw,
-            "online": online,
+            "device_info": dev['device_info'],
+            "ip": dev['ip'],
+            "port": dev['port'],
+            "url": dev['url'],
+            "db_name": dev['db_name'],
+            "user_id": dev['user_id'],
+            "user_pw": dev['user_pw'],
+            "online": True if devfamily else False,
             "authkey": authkey,
-            "device_family": devfamily
+            "device_family": devfamily,
+            "flag": dev['flag'] if dev.get('flag') else False,
         })
-    modifyConfig('software.status.active_device', nums_online)
+    client.close()
     return arr_dev
 
-def getDeviceInfoFromDB(device_info):
-    dbconn0 = dbconMaster()
-    pk=0
-    with dbconn0:
-        cur = dbconn0.cursor()
-        sq = "select pk, db_name, heatmap, countrpt from " + MYSQL['commonParam'] + " where device_info=%s" 
-        # print sq
-        cur.execute(sq, device_info)
-        if cur.rowcount:
-            row = cur.fetchone()
-            pk, db_name, heatmap, countrpt =  row
-    if pk:
-        return {"db_name": db_name, "heatmap": heatmap, "countrpt": countrpt}
-    return False
-
+def getDeviceInfoFromDB(db_name, device_info, fields={}):
+    client = db_connect()
+    collection = client[db_name][MONGO['customParam']]
+    
+    flags = {f:1 for f in fields }
+    rows = collection.find_one({'device_info': device_info}, flags)
+    arr_param = rows if rows else {}
+    client.close()
+    return arr_param
 
 
 def updateFaceThumnmail(face_dict):
@@ -372,61 +421,192 @@ def updateEventCount(event_rs):
         # updateRtCounting(dbconn0, db_name)
         dbconn0.commit()
 
-def updateEventSnapshot(event_rs):
-    dbconn0 = dbconMaster()
-    with dbconn0:
-        cur = dbconn0.cursor()
+
+def getDatabaseNames():
+    try:
+        client = db_connect()
+        db_names = client.list_database_names()
+        client.close()
+        # 시스템 데이터베이스 제외
+        db_names = [db for db in db_names if db not in ['admin', 'config', 'local', 'none', 'cnt_common']]
+        return db_names
+    except Exception as e:
+        log.error(f"Failed to get database names: {str(e)}")
+        return []
+
+def updateCountReportExt(db_name='none'):
+
+    if db_name == 'none':
+        return False
+    client = db_connect()
+    db = client[db_name]
+    collection = {
+        'tenmin': db[MONGO['customCount']['tenmin']],
+        'hour':   db[MONGO['customCount']['hour']],
+        'day':    db[MONGO['customCount']['day']],
+        'week':   db[MONGO['customCount']['week']],
+        'month':  db[MONGO['customCount']['month']],
+        'year':   db[MONGO['customCount']['year']]
+    }
+    # rows = collection['tenmin'].find({'status':{'$lt':31}}) 
+    query = {'status':{'$lt':31}}
+    total_record = collection['tenmin'].count_documents(query)
+    print (f"total_record: {total_record}")
+
+    batch_size = 1000
+    ts_start = time.time()
+
+    rows = collection['tenmin'].find(query).limit(batch_size)
+    for row in rows:
+        for key, value in row.items():
+            if isinstance(value, (int, float)):
+                row[key] = int(value)
+            if isinstance(value, (datetime, date)):
+                row[key] = value.isoformat()
+
+        ts = int(row['timestamp'])
+        wflag = int(row['status'])
+        # print ('wflag', wflag, row['device_info'], row['datetime'])
+        if((wflag & 1) == 0): # count hour
+            query = {
+                'device_info': row['device_info'],
+                'timestamp': ts // 3600 * 3600,
+                'ct_name': row['ct_name']
+            }
+            rt = collection['hour'].find_one(query)
+            # print ('hour', rt)
+            if rt:
+                ret = collection['hour'].find_one_and_update(query, {'$set':{'ct_value':rt['ct_value']+row['ct_value']}})
+            else:
+                del(row['min'])
+                row['timestamp'] = ts//3600*3600
+                row['datetime'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(row['timestamp']))
+                ret = collection['hour'].insert_one(row)
+            if(ret):
+                wflag |= 1
+
+        if((wflag & 2) == 0):
+            query = {
+                'device_info': row['device_info'],
+                'timestamp': ts // 86400 * 86400,
+                'ct_name': row['ct_name']
+            }
+            rt = collection['day'].find_one(query)
+            # print ('day', rt)
+            if rt:
+                ret = collection['day'].find_one_and_update(query, {'$set':{'ct_value':rt['ct_value']+row['ct_value']}})
+            else:
+                del(row['hour'])
+                row['timestamp'] = ts//86400*86400
+                row['datetime'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(row['timestamp']))
+                ret = collection['day'].insert_one(row)
+            if(ret):
+                wflag |= 2
+
+        if((wflag & 4) == 0):
+            query = {
+                'device_info':row['device_info'],
+                'timestamp':ts//604800*604800,
+                'ct_name':row['ct_name']
+            }
+            rt = collection['week'].find_one(query)
+            # print ('week', rt)
+            if rt:
+                ret = collection['week'].find_one_and_update(query, {'$set':{'ct_value':rt['ct_value']+row['ct_value']}})
+            else:
+                del(row['day'])
+                row['timestamp'] = ts//604800*604800
+                row['datetime'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(row['timestamp']))
+                row['week'] = int(time.strftime("%U", time.gmtime(row['timestamp'])))
+                ret = collection['week'].insert_one(row)
+        
+            if(ret):
+                wflag |= 4
+
+        if((wflag & 8) == 0):
+            query = {
+                'device_info':row['device_info'],
+                'year':row['year'],
+                'month':row['month'],
+                'ct_name':row['ct_name']
+            }
+            rt = collection['month'].find_one(query)
+            # print ('month', rt)
+            if rt:
+                ret = collection['month'].find_one_and_update(query, {'$set':{'ct_value':rt['ct_value']+row['ct_value']}})
+            else:
+                del(row['week'])
+                row['timestamp'] = time.mktime(time.strptime(f"{row['year']}-{row['month']}-01 00:00:00", "%Y-%m-%d %H:%M:%S")) + CONFIG['TIMEZONE']['tz_offset']
+                row['datetime'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(row['timestamp']))
+                ret = collection['month'].insert_one(row)
+            
+            if(ret):
+                wflag |= 8
+
+        if((wflag & 16) == 0):
+            query = {
+                'device_info':row['device_info'],
+                'year':row['year'],
+                'ct_name':row['ct_name']
+            }
+            rt = collection['year'].find_one(query)
+            # print ('year', rt)
+            if rt:
+                ret = collection['year'].find_one_and_update(query, {'$set':{'ct_value':rt['ct_value']+row['ct_value']}})
+            else:
+                del(row['month'])
+                row['timestamp'] = time.mktime(time.strptime(f"{row['year']}-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")) + CONFIG['TIMEZONE']['tz_offset']
+                row['datetime'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(row['timestamp']))
+                ret = collection['year'].insert_one(row)
+
+            if(ret):
+                wflag |= 16
+
+        if(wflag):
+            collection['tenmin'].find_one_and_update({'_id':row['_id']}, {'$set':{'status':wflag}})
+            wflag = 0
+            
+    print(f"Processed: {min(batch_size, total_record)}/{total_record}, elapsed: {round(time.time() - ts_start, 2)} secs")
+
+    client.close()
+    return True
+
+class thUpdateCountReportExtTimer():
+    def __init__(self, t=1800):
+        self.name = "active_count"
+        self.t = t
+        self.last = 0
+        self.i = 0
+        self.thread = threading.Timer(1, self.handle_function)
+
+    def handle_function(self):
+        self.main_function()
+        self.last = int(time.time())
+        self.thread = threading.Timer(self.t, self.handle_function)
+        self.thread.start()
+
+    def main_function(self):
+        db_names = ['cnt_demo']
+        for db_name in db_names:
+            updateCountReportExt(db_name)
+
+    def start(self):
+        self.handle_function()
     
-
-def calTimestamp(db_name):
-    dbCon = dbconMaster(host='', user = 'ct_user', password = '13579',  charset = 'utf8', port=3306)
-    with dbCon:
-        cur = dbCon.cursor()
-        sq = "select pk, timestamp, year, month, day, hour, min  from %s.count_tenmin order by pk desc limit 1000,10 " %db_name
-        cur.execute(sq)
-        rows =cur.fetchall()
-        for r in rows:
-            # print(r)
-            strn = "%04d/%02d/%02d %02d:%02d" %(r[2],r[3],r[4],r[5],r[6])
-            dt = time.strptime(strn,"%Y/%m/%d %H:%M")
-            gt = time.localtime(int(r[1]))
-            ts1 = time.mktime(dt)
-            ts2 = time.mktime(gt)
-            diff = ts1-ts2
-            ts = int(r[1]) - diff
-            print (strn, r[1],ts, dt, gt, int(diff/3600))
-
-
-
-def deDuplicate(db_name):
-    query_set = set()
-
-    dbCon = dbconMaster(host='', user = 'ct_user', password = '13579',  charset = 'utf8', port=3306)
-    with dbCon:
-        cur = dbCon.cursor()
-        sq = "select device_info, counter_label, counter_name from %s.count_tenmin group by device_info, counter_name " %db_name
-        # print (sq)
-        cur.execute(sq)
-        rows =cur.fetchall()
-        for r in rows:
-            # print(r)
-            query_set.add( "device_info='%s' and  counter_name='%s'" %(r[0], r[2]))
-
-        # print (query_set)
-        for q_set in query_set:
-            sq = "select pk, timestamp from %s.count_tenmin where %s order by timestamp asc" %(db_name, q_set)
-            cur.execute(sq)
-            rows = cur.fetchall()
-            for r in rows:
-                sq = "select pk, timestamp from %s.count_tenmin where %s and timestamp=%d " %(db_name, q_set, r[1])
-                cur.execute(sq)
-                if int(cur.rowcount) >1:
-                    print (r[0], r[1], q_set)
-                # print (sq)
-
-# deDuplicate('cnt_demo')
-# calTimestamp('cnt_demo')
-# sys.exit()
+    def is_alive(self):
+        return self.thread.is_alive()
+    
+    def stop(self):
+        self.thread.cancel()
+        self.thread = None
+    
+    def restart(self):
+        self.stop()
+        self.start()
+    def get_name(self):
+        return self.name
+    
+    
 
 if __name__ == '__main__':
     # x = getLatestTimestamp( MYSQL['commonCounting'], 'mac=001323A00326&brand=CAP&model=NS602HD' )
@@ -439,5 +619,10 @@ if __name__ == '__main__':
     # dbconn0 = dbconMaster()
     # with dbconn0:    
     #     updateRtCounting(dbconn0, 'cnt_demo')
-
+    updateCountReportExt('cnt_demo')    
+    # x = getWriteParams()
+    # print(x)
+    # completeWriteParam([x[0]['_id']])
+    # s = getDatabaseNames()
+    # print(s)
     sys.exit()

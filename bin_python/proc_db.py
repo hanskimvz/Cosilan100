@@ -27,9 +27,27 @@ import json
 from math import floor
 import threading
 
-from functions_s import (CONFIG, log, db_connect)
+from functions_s import (configVars, log, dbconMaster, PROBE_INTERVAL)
+
+MYSQL = { 
+    "commonParam": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.param'),
+    "commonSnapshot": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.snapshot'),
+    "commonCount": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.counting'),
+    "commonHeatmap": configVars('software.mysql.db') +"." + configVars('software.mysql.db_common.table.heatmap'),
+    "commonCountEvent": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.count_event'),
+    "commonFace": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.face'),
+    "customCount": configVars('software.mysql.db_custom.table.count'),
+    "customHeatmap": configVars('software.mysql.db_custom.table.heatmap'),
+    "customAgeGender": configVars('software.mysql.db_custom.table.age_gender'),
+    "customSquare": configVars('software.mysql.db_custom.table.square'),
+    "customStore": configVars('software.mysql.db_custom.table.store'),
+    "customCamera": configVars('software.mysql.db_custom.table.camera'),
+    "customCounterLabel": configVars('software.mysql.db_custom.table.counter_label'),
+    "customRtCount": "realtime_counting",
+}
 
 
+#new function , real age number array to json str , 0,1,2,3,4 ~~99
 def inc_age_value(json_str, age):
     if not json_str :
         json_str = ''

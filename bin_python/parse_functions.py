@@ -26,7 +26,7 @@ import time
 from urllib.parse import urlparse, parse_qsl, unquote
 import re, base64
 
-from functions_s import (addSlashes, log, message, CONFIG)
+from functions_s import (addSlashes, log, message, TZ_OFFSET)
 
     
 def parseParam(body, device_family='IPN'): #body <type byte>
@@ -127,7 +127,7 @@ def parseCountReport(body): # body type byte
         except:
             tss = time.strptime(field[0], "%Y-%m-%d %H:%M:%S")
 
-        timestamp = int(time.mktime(tss))  + int(CONFIG['TIMEZONE']['tz_offset'])
+        timestamp = int(time.mktime(tss))  + TZ_OFFSET
         for j in range(0, numberofcounters):
             counter_value = int(field[j+1])
             if counter_value < 0 :
@@ -158,9 +158,9 @@ def parseHeatmapData(body):
             return []
         datetime = time.strftime("%Y-%m-%d %H:00:00", tss)
         tss = time.strptime(datetime, "%Y-%m-%d %H:%M:%S")
-        timestamp = int(time.mktime(tss)) + int(CONFIG['TIMEZONE']['tz_offset'])
+        timestamp = int(time.mktime(tss)) + TZ_OFFSET
         str_csv = ""
-        for j in range(1, 46) :
+        for j in range(1, 45) :
             str_csv += (line[j+i*46]+"\r\n")
         arr_record.append({"timestamp":timestamp, "datetime":datetime, "heatmap":str_csv})
 

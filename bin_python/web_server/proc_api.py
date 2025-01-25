@@ -24,20 +24,19 @@
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, urlsplit, parse_qsl, uses_params
-import os, sys, time, datetime
+import os, sys, time
 import json
 
-from web_server.users           import procLogin, getUserList, updateUser, changePassword
-from web_server.language        import getLanguagePack
-from web_server.webpage_config  import getWebConfig
-from web_server.counting        import getPlaceData
-from web_server.database        import queryDatabase, updateDatabase, insertDatabase
+from functions_s import loadSettings, _ROOT_DIR
 
-# from web_server.query_db import getCountData, getPlaceData, getTrafficData, listDevices, siteMap, queryDatabase, getLanguagePack, getWebConfig, procLogin
-# from web_server.update_db import updateLanguage, updateWebConfig, updateDatabase
+from web_server.query_db import getCountData, getPlaceData, getTrafficData, listDevices, siteMap, queryDatabase, getLanguagePack, getWebConfig, procLogin
+from web_server.update_db import updateLanguage, updateWebConfig, updateDatabase
+
+MYSQL = loadSettings()
 
 def getJsonFromFile(filename, cat = "systemlog"):
   ts_start = time.time()
+  os.chdir(_ROOT_DIR)
   with open (filename, 'r')  as f:
     body = f.read()
 
@@ -69,27 +68,18 @@ def getJsonFromFile(filename, cat = "systemlog"):
   arr_rs['elaspe_time'] = round(ts_end-ts_start, 2)  
   return arr_rs
 
-def getConfig():
-  with open ('config/config.json', 'r') as f:
-    body = f.read()
-  return body
-
 
 def proc_api(url_parts, post_data = {}):
     script_name = url_parts.path.split("/")[-1]
     query = dict(parse_qsl(urlsplit(url_parts.query).path))
     # {'data': 'count', 'fmt': 'json', 'sq': '0', 'st': '0', 'cam': '0', 'date_from': '2024-04-19', 'date_to': '2024-04-20', 'view_by': 'hourly'}
-    print ('query:',query)
-    print ('post_data:',post_data)
+    print (query)
     arr= {}
     if not query.get('db_name'):
       query['db_name'] = 'cnt_demo'
 
     if script_name == 'login': # post
-      arr = procLogin(post_data)
-
-    elif script_name == 'getconfig':
-      arr = getConfig()
+      arr = procLogin(query['db_name'], post_data)
 
     elif script_name == 'query':
       if query['data'] == 'language': # get
@@ -107,26 +97,21 @@ def proc_api(url_parts, post_data = {}):
       elif query['data'] == 'jsonfromfile': # get
         arr = getJsonFromFile(query['filename'], query['cat'])
 
+
+      elif query['data'] == 'count': # post
+        arr = getCountData(post_data)
+      
+      elif query['data']=='trafficdistribution': # post
+        arr = getTrafficData(post_data)
+
+      elif query['data'] == 'listdevice': # post
+        arr = listDevices(post_data)
+
+      elif query['data'] == 'sitemap': # post
+        arr = siteMap(post_data)
+
       elif query['data'] == 'querydb': # post
         arr = queryDatabase(post_data)
-      elif query['data'] == 'getUserList': # post
-        arr = getUserList(post_data)        
-
-
-
-
-      # elif query['data'] == 'count': # post
-      #   arr = getCountData(post_data)
-      
-      # elif query['data']=='trafficdistribution': # post
-      #   arr = getTrafficData(post_data)
-
-      # elif query['data'] == 'listdevice': # post
-      #   arr = listDevices(post_data)
-
-      # elif query['data'] == 'sitemap': # post
-      #   arr = siteMap(post_data)
-
 
 
     elif script_name == 'update':
@@ -140,15 +125,8 @@ def proc_api(url_parts, post_data = {}):
       elif query['data'] == 'updatedb':
         arr = updateDatabase(post_data)
 
-      elif query['data'] == 'updateUser':
-        arr = updateUser(post_data)
 
-      elif query['data'] == 'changePassword':
-        arr = changePassword(post_data)
 
-    elif query['data'] == 'insertdb':
-      arr = insertDatabase(post_data)
-    
     if query.get('fmt') == 'json' or post_data.get('format') == 'json':
       body = json.dumps(arr)
       # print (body)

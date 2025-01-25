@@ -1,306 +1,327 @@
-<-- 
-update 기능 구현 안됨.
-
-현재는 Modal로 되어 있는데, 나중에 어떻게 바꿀지 결정.
-
--->
-
 <template>
-  <div class="row">
-    <div class="card border col-md-12" style="background-color:#fff;">
-      <div class="card-header">
-      <div class="card-actions float-right dropdown show mr-2">
-        <a href="#" data-toggle="dropdown" data-display="static"><span class="mt-0">&#9661;</span></a>
-        <div class="dropdown-menu dropdown-menu-right">
-          <span type="button" data-toggle="modal" data-target="#square_detail" class="dropdown-item" style="padding-bottom:0px; padding-top:0px;"  @click="viewSquareInfo(0)">Add Square</span>
-        </div>
-      </div>
-      <h5 class="card-title mb-0"><b>{{$t('device_tree') }}</b></h5>
-    </div> </div>
-
-    <div v-for="(square, i) in tree_data" :key="i" class="col-md-4 easy-tree">     
-      <div class="card" style="background-color:#fff;">
-        <div class="card-header alert-success">
-          <div class="card-actions float-right dropdown show">
-            <a href="#" data-toggle="dropdown" data-display="static">&#8803;</a>
-            <div class="dropdown-menu dropdown-menu-right">
-              <span type="button" data-toggle="modal" data-target="#store_detail" class="dropdown-item" @click="viewStoreInfo(0)">Add  Store</span>
-            </div>
-          </div>
-          <h5 class="card-title mb-1 mt-0">
-            <span type="button" data-toggle="modal" data-target="#square_detail" @click="viewSquareInfo(square.code)"><span class="mr-2">&#127972;</span><b>{{ square.name }}</b></span>
-          </h5>
-        </div>
-        <ul>
-          <li v-for="(store, j) in square.store" :key="j">
-            <div class="card-header glyphicon mb-0 mt-0 col-md-12" style="background-color:#fdd; padding-bottom:0px;">
-              <div class="card-actions float-right dropdown show mr-0 mt-0">
-                <a href="#" data-toggle="dropdown" data-display="static">&#8803;</a>
-                <div class="dropdown-menu dropdown-menu-right">
-                  <span type="button" data-toggle="modal" data-target="#detail_device" class="dropdown-item" @click="viewStoreInfo(store.code)">Add device</span>
-                </div>
-              </div>
-              <h5 class="card-title ml-1 mb-1 mt-0">
-                <span type="button" data-toggle="modal" data-target="#store_detail" @click="viewStoreInfo(store.code)"><span class="mr-2">&#127968;</span><b>{{ store.name }}</b></span>
-              </h5>
-            </div>
-            
-                      <ul>
-                        <li v-for="(camera, k) in store.camera" :key="k">
-                          <div class=" card card-header glyphicon mb-0 mt-0 col-md-10 " style="background-color:#adf; padding-bottom:0px;">
-                            <h5 class="card-title ml-1 mb-1 mt-0">
-                              <span type="button" data-toggle="modal" data-target="#detail_device" @click="viewCameraInfo(camera.code)">
-                                <i class="fas fa-fw fa-camera"></i><b class="ml-2">{{ camera.name }}</b>
-                              </span>
-                            </h5>
-                          </div>
-                        </li>
-                      </ul>
-
-                    </li>
-                  </ul>
-    
-
-
-      </div>
+  <nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="navbar-collapse ">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+      </ul>
+      <navLanguage /><navDropdown />
     </div>
+  </nav>
+  <div class="main">
+    <main class="content">
+      <div class="container-fluid mt-2">
+        <div class="row">
+          <div class="col-md-5">
+            <TreeView :data="tree_data" @click="handleClick" />
+          </div>
+          <div class="col-md-7 pos-panel">
+            <squareInfo v-if="view_info.square" :square_info="square_info" @update="updateSquare"></squareInfo>
+            <storeInfo v-else-if="view_info.store" :store_info="store_info" @update="updateStore"></storeInfo>
+            <cameraInfo v-else-if="view_info.camera" :camera_info="camera_info" @update="updateCamera"></cameraInfo>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div v-if="alert.show" :class="`alert alert-${alert.type} alert-dismissible fade show m-3`" role="alert">
+      {{ alert.message }}
+      <button type="button" class="btn-close" @click="alert.show = false"></button>
   </div>
 
-
-
-<!-- square info -->
-<div class="modal fade" id="square_detail" tabindex="-1" role="dialog" aria-hidden="true">
-  <squareInfo :square_info="square_info" @update="modifySquare"></squareInfo>
-</div>
-
-<!-- store info -->
-<div class="modal fade" id="store_detail" tabindex="-1" role="dialog" aria-hidden="true">
-  <storeInfo  :store_info="store_info" @update="modifyStore"></storeInfo>
-</div>
-
-<!-- device info -->
-<div class="modal fade" id="detail_device" tabindex="-1" role="dialog" aria-hidden="true">
-  <cameraInfo :camera_info="camera_info" :counter_label_info="counter_label_info" @update="modifyCamera"></cameraInfo>
-</div> 
 </template>
 
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue';
 import axios from 'axios';
-import { navStore } from '@/store/nav_store.js';
 import { useRouter } from 'vue-router';
+import { useCookies } from 'vue3-cookies';
 
+import { useI18n } from 'vue-i18n';
+const { t, locale } = useI18n();
+
+import TreeView from    '@/components/TreeView.vue';
+import navLanguage from '@/layout/NavLanguage.vue';
+import navDropdown from '@/layout/NavDropdown.vue';
+  
 import squareInfo from '@/components/SquareInfo.vue';
-import storeInfo from '@/components/StoreInfo.vue';
+import storeInfo from  '@/components/StoreInfo.vue';
 import cameraInfo from '@/components/CameraInfo.vue';
-
+  
 const router = useRouter();
-const dp = navStore(); // piana
+const { cookies } = useCookies();
 
-const tree_data = ref({});
-
-
-
-const  square_info = ref({
-  name: 'square tmep',
-  code : '1223432424',
-  body: 'sadfasjdfldfjsdl'
-});
-const  store_info = ref({
-  name: 'store tmep',
-  code : '1223432424',
-  body: 'sadfasjdfldfjsdl'
-});
-const  camera_info = ref({});
-const counter_label_info =ref({});
-
-
-const viewSquareInfo = ((sq_code)=>{
-  console.log(sq_code);
-
+const alert = ref({
+  show: false,
+  type: 'warning',  // success, danger, warning, info 등
+  message: ''
 });
 
-const viewStoreInfo = ((st_code)=>{
-  console.log(st_code)
-})
+
+  
+const tree_data   = ref([]);
+const view_info   = ref({});
+const square_info = ref({});
+const store_info  = ref({});
+const camera_info = ref({});
+
+const active_code = ref('');
 
 
-const viewCameraInfo = ( (cam_code) =>{
-  console.log(cam_code)
-  axios({
-    method: 'post',
-    url: '/api/query',
-    params:{
-      data:'listdevice',
-    },
-    data: {
-      format: 'json',
-      db_name: dp.db_name,
-      sq: 0,
-      st: 0, 
-      cam: [cam_code],
-    },
-    header:{"Context-Type": "multipart/form-data"}
-  }).then(result => {
-    // console.log(result.data);
-    camera_info.value = result.data.device[0];
-    const ex_dev = camera_info.value.device_info.split("&");
-    camera_info.value.mac = ex_dev[0].split("=")[1];
-    camera_info.value.brand = ex_dev[1].split("=").length >1 ? ex_dev[1].split("=")[1]: '';
-    camera_info.value.model = ex_dev[2].split("=").length >1 ? ex_dev[2].split("=")[1]: '';
+const handleClick = (square_code, store_code, camera_code) => {
+  view_info.value = {};
+  // tree_data.value = JSON.parse(JSON.stringify(tree_data_org));
 
-    camera_info.value.enable_countingline = camera_info.value.features.enable_countingline;
-    camera_info.value.enable_face_det     = camera_info.value.features.enable_face_det;
-    camera_info.value.enable_heatmap      = camera_info.value.features.enable_heatmap;
-    camera_info.value.enable_macsniff     = camera_info.value.features.enable_macsniff;
+  // console.log('handleClick', square_code, store_code, camera_code);
+  if (square_code && !store_code && !camera_code) {
+    showSquareInfo(square_code);
+  }
+  else if (square_code && store_code && !camera_code) {
+    showStoreInfo(square_code, store_code);
+  }
+  else if (square_code && store_code && camera_code) {
+    showCameraInfo(square_code, store_code, camera_code);
+  }
+}
 
-    camera_info.value.countrpt = camera_info.value.functions.countrpt;
-    camera_info.value.face_det = camera_info.value.functions.face_det;
-    camera_info.value.heatmap  = camera_info.value.functions.heatmap;
-    camera_info.value.macsniff = camera_info.value.functions.macsniff;
-
-    console.log(camera_info.value);
-  })
-  .catch(error => {
-      console.log(error);
-  });
-
-  axios({
-    method: 'post',
-    url: '/api/query',
-    params:{
-      data:'querydb',
-    },
-    data: {
-      db: dp.db_name,
-      table: 'counter_label',
-      fields: ['counter_name', 'counter_label'],
-      search: 'camera_code="' + cam_code + '"',
-      page_no: 0,
-      page_max: 1000,
-      format : 'json'
-    },
-    header:{"Context-Type": "multipart/form-data"}
-  }).then(result => {
-    console.log(result.data);
-  }).catch(error => {
-      console.log(error);
-  });
-
-})
-
-
-const modifySquare= (()=>{
-  console.log(square_info.value);
-})
-const modifyStore= (()=>{
-  console.log(store_info.value);
-})
-
-const modifyCamera= (()=>{
-  console.log(camera_info.value);
-})
-
-
-
-let arr_devices = ref({});
-let arr_camera = ref({});
-let camera = ref({});
-const deviceDetail = ( (dev_info)=>{
-  // console.log(arr_camera.value)
-  const z = document.getElementById("zone_id");
-  const f_checked = 'align-middle fas fa-check-square mr-1';
-  const f_uncheck = 'align-middle far fa-square mr-1';
-  arr_camera.value.forEach( (item)=>{
-    if (item.device_info == dev_info) {
-      camera.value =  item;
-      let ss = camera.value.device_info.split("&")
-      camera.value.mac = ss[0].split("=")[1];
-      camera.value.brand = ss[1].split("=")[1];
-      camera.value.model = ss[2].split("=")[1];
-
-      camera.value.functions.countrpt ? $('#cntrpt').attr('class', f_checked) : $('#cntrpt').attr('class', f_uncheck);
-      camera.value.functions.face_det ? $('#face_det').attr('class', f_checked) : $('#face_det').attr('class', f_uncheck);
-      camera.value.functions.heatmap  ? $('#heatmap').attr('class', f_checked) : $('#heatmap').attr('class', f_uncheck);
-      camera.value.functions.macsniff ? $('#macsniff').attr('class', f_checked) : $('#macsniff').attr('class', f_uncheck);
-
-      camera.value.features.enable_countingline ? $('#en_cntrpt').attr('class', f_checked) : $('#en_cntrpt').attr('class', f_uncheck);
-      camera.value.features.enable_face_det ? $('#en_face_det').attr('class', f_checked) : $('#en_face_det').attr('class', f_uncheck);
-      camera.value.features.enable_heatmap  ? $('#en_heatmap').attr('class', f_checked) : $('#en_heatmap').attr('class', f_uncheck);
-      camera.value.features.enable_macsniff ? $('#en_macsniff').attr('class', f_checked) : $('#en_macsniff').attr('class', f_uncheck);
-      draw_zone(z, camera.value.zone_info, camera.value.snapshot.body);
-    }
-  })
-});
-
-const drawDeviceTree= ((data)=>{
-  let arr = new Array();
-  const f_checked = 'align-middle fas fa-check mr-1';
-  data.forEach((sq,i) => {
-    sq.store.forEach((st,j)=>{
-      st.camera.forEach((cam, k) => {
-        arr.push({
-          "sq_name": j == 0 && k == 0 ? sq.name :'',
-          "st_name": k == 0 ? st.name : '',
-          "cam_name": cam.code,
-          "snapshot": cam.snapshot,
-          "sq_border": j != 0 || k !=0 ? 'border: 0px solid black':'',
-          "st_border":  k !=0 ? 'border: 0px solid black':'',
-          "regdate": cam.last_access,
-          "enable_countingline": cam.enable_countingline == 'y' ? f_checked : '',
-          "enable_heatmap": cam.enable_countingline == 'y' ? f_checked : '',
-
-          });
+const updateTree = () => {
+  // console.log('updateTree');
+  tree_data.value.forEach(item => {
+    item.name = item.name_org;
+    item.store.forEach(store => {
+      store.name = store.name_org;
+      store.camera.forEach(camera => {
+        camera.name = camera.name_org;
       });
-
     });
-  })
-  arr_devices.value = arr;
-});
+  });
+}
 
-function getDeviceTree() {
-  const url ='/api/query?data=sitemap&fmt=json';
-  // console.log(url);
-  axios({
-    method: 'post',
-    url: '/api/query',
-    params:{
-      data:'sitemap',
-    },
-    data: {
-      format: 'json',
-      db_name: dp.db_name,
-    },
-    header:{"Context-Type": "multipart/form-data"}
-  }).then(result => {
-    console.log(result.data);
-    tree_data.value=result.data;
-    if (result.data.code == 403) {
+const showSquareInfo = (square_code) => {
+  view_info.value.square = true;
+  if (active_code.value != square_code) {
+    updateTree();
+  }
+  active_code.value = square_code;
+  
+  square_info.value = tree_data.value.find(item => item.code === square_code);
+  square_info.value.isExpanded = true;
+  
+  if (square_info.value.code == 'new') {
+    square_info.value.name = '';
+  }
+}
+
+
+
+const showStoreInfo = (square_code, store_code) => {
+  view_info.value.store = true;
+  if (active_code.value != store_code) {
+    updateTree();
+  }
+  active_code.value = store_code;
+
+  square_info.value = tree_data.value.find(item => item.code === square_code);
+  store_info.value  = square_info.value.store.find(item => item.code === store_code);
+  store_info.value.squares = tree_data.value.map(item => ({code: item.code, name: item.name}));
+  // store_info.value.square_code = square_code;
+  if (store_info.value.code == 'new') {
+    store_info.value.name = '';
+  }
+}
+
+const showCameraInfo = (square_code, store_code, camera_code) => {
+  view_info.value.camera = true;
+  if (active_code.value != camera_code) {
+    updateTree();
+  }
+  active_code.value = camera_code;
+
+  camera_info.value = tree_data.value.find(item => item.code === square_code).store.find(item => item.code === store_code).camera.find(item => item.code === camera_code);
+  camera_info.value.stores = tree_data.value.find(item => item.code === square_code).store.map(item => ({code: item.code, name: item.name}));
+  camera_info.value.store_code_org = store_code;
+  camera_info.value.square_code_org = square_code;
+}
+
+const updateSquare = (data) => {
+  // console.log('updateSquare', data);
+  if (data == 'cancel') {
+    square_info.value.name = square_info.value.name_org;
+    view_info.value = {};
+    if (square_info.value.code == 'new') {
+      square_info.value.name = t('new_square');
+    }
+    return;
+  }
+  // console.log(data);
+}
+
+const updateStore = (data) => {
+  // console.log('updateStore', data);
+  if (data == 'cancel') {
+    store_info.value.square_code = store_info.value.square_code_org;
+    store_info.value.name = store_info.value.name_org;
+    view_info.value = {};
+    if (store_info.value.code == 'new') {
+      store_info.value.name = t('new_store');
+    }
+    return;
+  }
+  
+  // console.log(data);
+}
+
+const updateCamera = () => {
+  console.log('updateCamera');
+}
+
+
+function transformPlaceData(data) {
+  const result = {};
+  data.forEach(item => {
+    const squareCode = item.square_code;
+    const storeCode  = item.store_code;
+    const cameraCode = item.camera_code;
+
+    if (!result[squareCode]) {
+      result[squareCode] = {
+        code: squareCode,
+        name: item.square_name,
+        name_org: item.square_name,
+        address: item.square_address ? item.square_address : '',
+        comment: item.square_comment ? item.square_comment : '',
+        store: {},
+        isExpanded: false
+      };
+    }
+    if(storeCode){
+      if (!result[squareCode].store[storeCode]) {
+        result[squareCode].store[storeCode] = {
+          code: storeCode,
+          name: item.store_name,
+          name_org: item.store_name,
+          contact: item.store_contact,
+          tel: item.store_tel,
+          address: item.store_address ? item.store_address : '',
+          open_hour: item.store_open_hour ? item.store_open_hour : 0,
+          close_hour: item.store_close_hour ? item.store_close_hour : 0,
+          comment: item.store_comment ? item.store_comment : '',
+          area: item.store_area ? item.store_area : 0,
+          sniffing_mac: item.store_sniffing_mac ? item.store_sniffing_mac : '',
+          camera: {},
+          square_code: squareCode,
+          square_code_org: item.square_code,
+        };
+      }
+  
+      if(cameraCode){
+        if (!result[squareCode].store[storeCode].camera[cameraCode]) {
+          result[squareCode].store[storeCode].camera[cameraCode] = {
+            code: cameraCode,
+            name: item.camera_name,
+            name_org: item.camera_name,
+            device_info: [],
+            square_code: squareCode,
+            square_code_org: item.square_code,
+            store_code: storeCode,
+            store_code_org: item.store_code,
+            comment: item.camera_comment ? item.camera_comment : '',
+          };
+        }
+
+        const deviceInfo = item.device_info;
+        if (!result[squareCode].store[storeCode].camera[cameraCode].device_info.includes(deviceInfo)) {
+          result[squareCode].store[storeCode].camera[cameraCode].device_info.push(deviceInfo);
+        }
+      }
+    }   
+  });
+    
+  const tree_temp = Object.values(result).map(square => ({
+    ...square,
+    store: Object.values(square.store).map(store => ({
+      ...store,
+      camera: Object.values(store.camera)
+    }))
+  }));
+
+  tree_temp.forEach(item => {
+    item.store.forEach(store => {
+      store.camera.push({ 
+        code: 'new', 
+        name: t('new_camera'), 
+        name_org: t('new_camera'), 
+        device_info: [],
+        square_code: item.code,
+        square_code_org: item.code,
+        store_code: store.code,
+        store_code_org: store.code,
+        device_info: []
+      });
+    });
+    item.store.push({ 
+      code: 'new', 
+      name: t('new_store'), 
+      name_org: t('new_store'), 
+      square_code: item.code, 
+      square_code_org: item.code, 
+      camera: [] 
+    });
+  });
+  tree_temp.push({ code: 'new', name: t('new_square'), name_org: t('new_square'), store: [] });
+
+  return tree_temp;
+}
+  
+const  getDeviceTree = async() => {
+  try {
+    const res = await axios({
+      method: 'post',
+      url: '/api/query',
+      params:{ data:'querydb' },
+      data: {
+        db_name: cookies.get('_db_name'),
+        table: 'device_tree',
+        filter: {},
+        sort: { sq_name: 1 },
+        format : 'json'
+      },
+      header:{"Context-Type": "multipart/form-data"}
+    });
+    const data = await res.data;
+    console.log(data);
+    // tree_data.value=data.data;
+    if (data.code == 403) {
       router.push({ path: '/login'});
       return 0;
     }
-    drawDeviceTree(result.data);
-  })
-  .catch(error => {
-      console.log(error);
-  });
+    tree_data.value = transformPlaceData(data.data);
+    // console.log(tree_data.value);
+
+  }
+  catch(error) {
+    console.log(error);
+  }
+  finally {
+    // is_loading.value = false;
+  }
 }
 
 onMounted(() => {
   getDeviceTree();
 });
+
+
+
+
 </script>
 
 <style scoped>
-.easy-tree{ min-height:20px; margin-bottom:20px; color:#000;border:0; border-top:0; padding-bottom:15px }
-.easy-tree>ul{ padding-left:10px;  }
-.easy-tree li{ list-style-type:none; margin:0; padding:10px 20px 0;	position:relative}
-.easy-tree li::after,.easy-tree li::before{	content:'';	left:-30px;	position:absolute;	right:auto }
-.easy-tree li::before{ border-left:1px solid #888; bottom:10px; height:100%; top:0;	width:1px }
-.easy-tree li::after{ border-top:1px solid #888; height:3px; top:25px; width:50px; }
-.easy-tree li>span, .easy-tree li>div { -moz-border-radius:5px; -webkit-border-radius:5px; border:1px solid #add; border-radius:5px; display:inline-block; padding:5px 8px;min-width:200px; min-height:10px; text-decoration:none; background-color:#add;}
-.easy-tree li.parent_li>div{ cursor:pointer	}
-.easy-tree>ul>li::after,.easy-tree>ul>li::before{ border:0 }
-.easy-tree li:last-child::before{ height:26px }
-.easy-tree li>span>a{ color:#111; text-decoration:none}
+.pos-panel {
+  position: fixed;
+  right: 0px;
+  top: 50%;
+  width: 50%;
+  transform: translateY(-50%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
 </style>

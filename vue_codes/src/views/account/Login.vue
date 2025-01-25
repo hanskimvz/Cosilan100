@@ -88,7 +88,7 @@ const Login=(()=>{
 	}).then(result => {
 		console.log(result.data)
     if (result.data.code == 1000) {
-      cookies.set('_login_id', result.data.description.ID);
+      cookies.set('_login_id', result.data.description.id);
       cookies.set('_db_name', result.data.description.db_name);
       cookies.set('_role', result.data.description.role);
       cookies.set('_name', result.data.description.name);

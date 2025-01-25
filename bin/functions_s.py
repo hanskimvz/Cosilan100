@@ -29,10 +29,8 @@ import socket
 import re, base64, struct
 # from urllib.parse import urlparse, parse_qsl, unquote
 import threading
-import pymysql
 import logging, logging.handlers
-import sqlite3
-import signal
+from pymongo import MongoClient
 import json
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
@@ -44,224 +42,124 @@ op.add_option("-D", "--debug-display", action="store_true", dest="_DEBUG_DISPLAY
 op.add_option("-P", "--debug-port", action="store", dest="_MANAGER_PORT")
 opt, args = op.parse_args()
 
-def getPlatformName():
-	HOST = (socket.gethostname()).upper()
-	if HOST.startswith("COSILAN") and os.name == 'posix':
-		HOST = "OPAVIS"
-	return HOST
 
-_VERSION = True if opt._VERSION  else False
-_DEBUG_DISPLAY = True if opt._DEBUG_DISPLAY  else False
-_MANAGER_PORT = opt._MANAGER_PORT if opt._MANAGER_PORT else 5999
-
-_PLATFORM = getPlatformName()
-_ROOT_DIR = os.path.dirname( os.path.dirname(os.path.abspath(sys.argv[0])) )
-
-config_db_file = _ROOT_DIR + "/bin/param.db"
-log_file_name  = _ROOT_DIR + "/bin/log/bi.log"
-cgis_file_name = _ROOT_DIR + "/bin/cgis.json"
-
-# Orange Pi
-if _PLATFORM == 'OPAVIS':
-	try: 
-		import OPi.GPIO as GPIO
-		GPIO.cleanup()
-		GPIO.setboard(GPIO.PCPCPLUS)
-		GPIO.setmode(GPIO.BOARD)
-		PIN = {
-			'ACT':7,
-			'DATA':11,
-			'LINK':10,
-			'FAN':28
-		}
-		GPIO.setup(PIN['ACT'], GPIO.OUT) 
-		GPIO.setup(PIN['DATA'], GPIO.OUT) 
-		GPIO.setup(PIN['LINK'], GPIO.OUT) 
-		GPIO.setup(PIN['FAN'], GPIO.OUT) 
-		GPIO.output(PIN['FAN'], 1)
-	except:
-		pass
-
-# from chkLic import  chkLicMachine, getMac
+def get_config():
+	fname = os.path.dirname(os.path.abspath(__file__)) + "/config/config.json"
+	if not os.path.isfile(fname):
+		print("No config file")
+		return None
+	with open(fname, 'r') as f:
+		return json.load(f)
+	
+CONFIG = get_config()
 
 
-################ CONFIG and Variables ####################################
-_SERVER = ''
-_SERVER_MAC = ''
-PROBE_INTERVAL = 0
-CGIS = dict()
+
+def modifyConfig(groupPath, entryValue):
+	# 경로를 점(.)으로 분리
+	keys = groupPath.split('.')
+	print (keys)
+	
+	fname = os.path.dirname(os.path.abspath(__file__)) + "/config/config.json"
+	with open(fname, 'r') as f:
+		config = json.load(f)
+
+	current = config
+	for i, key in enumerate(keys[:-1]):
+		if key not in current:
+			current[key] = {}
+		current = current[key]
+	current[keys[-1]] = entryValue
+	print (config)
+
+	with open(fname, 'w') as f:
+		json.dump(config, f, indent=4)
+
+def db_connect():
+	try:
+		# MongoDB 연결 문자열에 authSource 명시적으로 추가
+		uri = "mongodb://%s:%s@%s:%s/?authSource=admin" % (
+			CONFIG['MONGODB']['user'],
+			CONFIG['MONGODB']['password'],
+			CONFIG['MONGODB']['host'],
+			CONFIG['MONGODB']['port']
+		)
+		client = MongoClient(uri)
+		# 연결 테스트
+		client.admin.command('ping')
+		return client
+	except Exception as e:
+		print(f"MongoDB Connection Error: {str(e)}")
+		return None
+
+
+def check_mongodb_users(admin_id, admin_passwd):
+	try:
+		# MongoDB 연결 (인증 없이)
+		client = MongoClient(f"mongodb://{admin_id}:{admin_passwd}@{CONFIG['MONGODB']['host']}:{CONFIG['MONGODB']['port']}/")
+		
+		# admin 데이터베이스 선택
+		admin_db = client.admin
+		
+		# 사용자 목록 조회
+		users = admin_db.command('usersInfo')
+		for user in users['users']:
+			if user['user'] == CONFIG['MONGODB']['user']:
+				client.close()
+				return True
+		
+		# 사용자가 없으면 새로 생성 - 수정된 문법
+		admin_db.command(
+			'createUser', 
+			CONFIG['MONGODB']['user'],
+			pwd=CONFIG['MONGODB']['password'],
+			roles=[
+				{ "role": "readWriteAnyDatabase", "db": "admin" },
+			]
+		)
+		
+		# 생성 확인
+		users = admin_db.command('usersInfo')
+		for user in users['users']:
+			if user['user'] == CONFIG['MONGODB']['user']:
+				client.close()
+				return True        
+		client.close()
+		return False
+		
+	except Exception as e:
+		print(f"MongoDB 사용자 조회 오류: {str(e)}")
+		return None
+
+def test_mongo():
+	client = db_connect()
+	if not client:
+		print("MongoDB 연결 실패")
+		return
+		
+	try:
+		db = client["cnt_common"]
+		collection = db["testCollection"]
+		data = {"name": "Alice", "age": 30, "city": "New York"}
+		collection.insert_one(data)
+		for doc in collection.find():
+			print(doc)
+	except Exception as e:
+		print(f"MongoDB 작업 오류: {str(e)}")
+	finally:
+		client.close()
 
 ########################### log  ###########################
 log = logging.getLogger("startBI")
-if not os.path.exists(os.path.dirname(log_file_name)):
-	os.makedirs(os.path.dirname(log_file_name))
+if not os.path.exists(os.path.dirname(CONFIG['log']['file'])):
+	os.makedirs(os.path.dirname(CONFIG['log']['file']))
 
 log.setLevel(logging.INFO)
-file_handler = logging.handlers.TimedRotatingFileHandler(filename = log_file_name, when = 'midnight', interval=1, encoding='utf-8')
+file_handler = logging.handlers.TimedRotatingFileHandler(filename = CONFIG['log']['file'], when = 'midnight', interval=1, encoding='utf-8')
 file_handler.suffix = '%Y%m%d'
 log.addHandler(file_handler)
 formatter = logging.Formatter("%(levelname)-8s  %(asctime)s %(module)s %(funcName)s %(lineno)s %(message)s %(threadName)s")
 file_handler.setFormatter(formatter)
-
-_mysql_port = 3306
-def message(strs):
-	if not _DEBUG_DISPLAY :
-		return False
-	print (strs)
-
-########################### config, parameters ###########################
-def sqlDbMaster():
-	global config_db_file
-	if not os.path.isfile(config_db_file):
-		message ("No config db file")
-		return False
-
-	conn = sqlite3.connect(config_db_file)
-	conn.execute("PRAGMA journal_mode=WAL")
-	return conn
-
-def configVars(groupPath=''):
-	arr_rs = dict()
-	arr= []
-	sq = ""
-	if groupPath.strip():
-		for i, x in enumerate(groupPath.split(".")):
-			arr.append("group%d = '%s'" %((i+1),x))
-		
-		sq = " and ".join(arr)
-	if sq:
-		sq = " where " + sq + " "
-
-	sq = "select entryValue, entryName, groupPath from param_tbl " + sq 
-	# print(sq)
-	configdbconn = sqlDbMaster()
-	with configdbconn:
-		cur = configdbconn.cursor()
-		cur.execute(sq)
-		rows = cur.fetchall()
-		if not rows:
-			return ''
-		if len(rows) == 1 :
-			return rows[0][0]
-		
-		for r in rows:
-			arr_rs[r[2]+"."+r[1]] = r[0]
-	return arr_rs
-
-def info_to_db(title, change_log_str) :
-	date_regex    = re.compile("(\d{4}-\d{2}-\d{2}),", re.IGNORECASE)
-	sq_rows = []
-
-	lines = change_log_str.splitlines()
-	for line in lines:
-		line = line.strip()
-		if not line or line[0:1] == '#':
-			continue
-		
-		m = date_regex.match(line)
-		if m :
-			st, en = m.span()
-			date = m.group()[:-1]
-			description = line[en:].strip()
-			sq_rows.append((title, date, description))
-		else :
-			continue
-
-	configdbconn = sqlDbMaster()
-	with configdbconn:
-		cur = configdbconn.cursor()
-		sqs = "select prino from info_tbl where category='change_log' and entryName=? and entryValue=? and description=? "
-		sqi = "insert into info_tbl(category, entryName, entryValue, description) values('change_log', ?, ?, ?)"
-		for row in sq_rows:
-			cur.execute(sqs, row)
-			r = cur.fetchone()
-			if not r:
-				message(row)
-				cur.execute(sqi, row)
-		configdbconn.commit()
-
-def info_from_db(title='', type='txt'):
-	configdbconn = sqlDbMaster()
-	with configdbconn:
-		cur = configdbconn.cursor()
-		sq = "select entryName, entryValue, description from info_tbl where category = 'change_log' "
-		if title :
-			sq += " and entryName = '" + title + "' "
-		sq += " order by entryName, entryValue asc"
-		# print(sqs)
-		cur.execute(sq)
-		rows = cur.fetchall()
-		body = ''
-		for row in rows:
-			if type == 'txt':
-				body += "%-16s %-12s  %s\n" %row
-			elif type == 'html':
-				body += "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" %row
-			# print(row)
-		if type == 'html':
-			body = '<table>' + body +'</table>'
-
-	return body
-
-
-def modifyConfig(groupPath, entryValue) :
-	ex = groupPath.split(".")
-	entryName = ex.pop()
-	groupPath_ = ""
-	for x in ex:
-		if groupPath_:
-			groupPath_ += "." 
-		groupPath_ += x
-	
-	configdbconn = sqlDbMaster()
-	with configdbconn:
-		cur = configdbconn.cursor()
-		sq = "update param_tbl set entryValue = '%s' where groupPath='%s' and entryName='%s'" %(entryValue, groupPath_, entryName)
-		# print (sq)
-		try:
-			cur.execute(sq)
-			configdbconn.commit()
-		except Exception as e:
-			message (str(e) + ", No groupPath or Entry Name")
-			return False
-	return True
-
-def load_cgis():
-	with open (cgis_file_name, "r", encoding="utf8") as f:
-		body = f.read()
-
-	return json.loads(body)
-
-#################### FUNCTIONS ##############################
-
-def callCommand(comm):
-    p = os.popen(comm)
-    return p.read()
-
-def outLED(led, flag):
-	global _PLATFORM	
-
-	if _PLATFORM !='OPAVIS':
-		return False
-
-	if flag == 'ON':
-		flag = 0
-	elif flag == 'OFF':
-		flag = 1
-
-	GPIO.output(PIN[led], flag)
-	
-def addSlashes(strings):
-	if isinstance(strings, bytes):
-		try:
-			strings = strings.decode("utf-8")
-		except :
-			strings = strings.decode("utf-16")
-	symbols = ["\\", '"', "'", "\0", "$" ]
-	for i in symbols:
-		if i in strings: 
-			strings = strings.replace(i, '\\' + i)
-	return strings
 
 
 def is_online(ip, port=80):
@@ -281,27 +179,24 @@ def is_online(ip, port=80):
 
 
 def checkServerStatus():
-	if is_online (_SERVER):
+	if is_online (CONFIG['server']['ip'], CONFIG['server']['port']):
 		return True
 	return False
 
-def checkNetworkLink():
-	if os.name == 'posix':
-		a = callCommand('cat /sys/class/net/eth0/operstate' )
-		# print (a)
-		if a.strip().lower() == 'up':
-			return True
-	if os.name == 'nt':
-		return is_online(_SERVER, port=80)
-	return False
-
-def checkAuthMode(dev_ip, userid='root', userpw='pass'):
+def checkAuthMode(dev_ip, dev_port = 80, userid='root', userpw='pass', dev_family=None):
 	dev_type= None
 	auth = None
+	if dev_family == 'IPN':
+		return (HTTPBasicAuth(userid, userpw), 'IPN')
+	elif dev_family == 'IPAI':
+		return (HTTPDigestAuth(userid, userpw), 'IPAI')
+	elif dev_family == 'IPE':
+		return (HTTPDigestAuth(userid, userpw), 'IPE')
+	
 	arr_dev = [
-		('IPN',  'http://' + dev_ip + '/uapi-cgi/network.cgi'),
-		('IPAI', 'http://' + dev_ip + '/cgi-bin/admin/network.cgi'),
-		('IPE',  'http://' + dev_ip + '/cgi-bin/admin/tcpstatus.cgi')
+		('IPN',  'http://' + dev_ip + ':' + str(dev_port) + '/uapi-cgi/network.cgi'),
+		('IPAI', 'http://' + dev_ip + ':' + str(dev_port) + '/cgi-bin/admin/network.cgi'),
+		('IPE',  'http://' + dev_ip + ':' + str(dev_port) + '/cgi-bin/admin/tcpstatus.cgi')
 	]
 	arr_auth = [HTTPBasicAuth(userid, userpw), HTTPDigestAuth(userid, userpw)]
 	if not is_online(dev_ip):
@@ -310,7 +205,7 @@ def checkAuthMode(dev_ip, userid='root', userpw='pass'):
 	for authkey in arr_auth:
 		for dev, url in arr_dev:
 			try:
-				r = requests.get(url,  auth=authkey)
+				r = requests.get(url,  auth=authkey, timeout=2)
 				if int(r.status_code) == 200:
 					return authkey, dev
 			except Exception as e:
@@ -324,15 +219,14 @@ def checkAuthMode(dev_ip, userid='root', userpw='pass'):
 def active_cgi(dev_ip, authkey='', cgi_str='', port=80):
 	url = '%s:%d/%s' %(dev_ip, port, cgi_str)
 	url = 'http://'+ url.replace("//", "/").strip()
-	# print(url)
-	outLED('DATA', 'ON')
+	print (url)
 	try:
-		r= requests.get(url , auth=authkey)
+		r= requests.get(url , auth=authkey, timeout=10)
 	except Exception as e:
 		log.error(url + "," + str(e))
+		print(url + "," + str(e))
 		return False
 		
-	outLED('DATA', 'OFF')
 	return r.content
 
 def recv_timeout(conn,timeout=2): 
@@ -362,27 +256,22 @@ def send_tlss_command(conn, cmd=''):
     length = len(cmd)
     s_num = struct.pack("BBBB", length&0xFF, (length>>8)&0xFF, (length>>16)&0xFF, (length>>24)&0xFF)
     rs = "send_message: length:%d, num:%d, %s" %(length, len(s_num), cmd)
-    outLED('ACT', 'ON')
     try:
         conn.send(s_num)
         conn.send(cmd.encode('ascii')) # send byte type
     except:
         pass
-    outLED('ACT', 'OFF')
     return rs
 
 def recv_tlss_message(conn, timeout=2):
     conn.setblocking(1)
-    outLED('DATA', 'ON')
     data_num =  conn.recv(4)
     try: 
-        # num = ord(data_num[0]) + (ord(data_num[1])<<8) + (ord(data_num[2])<<16) + (ord(data_num[3])<<24)
         num = int("%02X%02X%02X%02X" %(data_num[3],data_num[2],data_num[1],data_num[0]), 16)
     except:
         num=0
 
     rs = recv_timeout(conn, timeout)
-    outLED('DATA', 'OFF')
     return rs
 
 def getUpnpInfo(url, timeout=2) :
@@ -403,8 +292,15 @@ def getUpnpInfo(url, timeout=2) :
 		# print(e)
 		return False
 
-	rs['url']   = url_regex.search(rs_t).group(1) if url_regex.search(rs_t) else ''
-	rs['port']   = url_regex.search(rs_t).group(2) if url_regex.search(rs_t) else ''
+	if url_regex.search(rs_t):
+		rs['ip']   = url_regex.search(rs_t).group(1)
+		rs['port']   = url_regex.search(rs_t).group(2)
+		rs['url']   = url_regex.search(rs_t).group(0).replace("<modelURL>", "").replace("</modelURL>", "")
+	else:
+		rs['ip']   = ''
+		rs['port']   = 80
+		rs['url']   = ''
+
 	rs['model'] = model_regex.search(rs_t).group(1) if model_regex.search(rs_t) else ''
 	rs['brand'] = brand_regex.search(rs_t).group(1) if brand_regex.search(rs_t) else ''
 	rs['usn']   = usn_regex.search(rs_t).group(1) if usn_regex.search(rs_t) else ''
@@ -456,7 +352,7 @@ def arp_device():
 				if not mac:
 					mac = arr['mac']
 
-				dev_idx.append({"idx":i, "usn" : arr['usn'], "url":url, "location":location, "mac":mac, "model":arr['model'], "brand":arr['brand']})
+				dev_idx.append({"idx":i, "usn" : arr['usn'], "ip":arr['ip'], "port":arr['port'], "url":arr['url'], "mac":mac, "model":arr['model'], "brand":arr['brand']})
 				locations.add(location) # add succeeded ip
 	
 	return dev_idx
@@ -556,8 +452,8 @@ def ssdp_device(): # discover upnp devices
 			mac = arr['mac']		
 		if not usn:
 			usn = arr['usn']
-		
-		dev_idx.append({"idx":i, "usn" : usn, "url": url, "location": location, "mac":mac, "model":arr['model'], "brand":arr['brand']})
+
+		dev_idx.append({"idx":i, "usn" : usn, "ip":arr['ip'], "port":arr['port'], "url": arr['url'], "mac":mac, "model":arr['model'], "brand":arr['brand']})
 		locations.add(url)
 		i+=1
 	
@@ -570,126 +466,100 @@ def list_device() :
 		return arp_device()
 	return dev_idx
 
-
-################################### MYSQL MARIA DB ################################################
-
-def findMysqlPaths(): 
-	#find all mysql, mariadb paths on system
-	arr_path = list()
-	if os.name == 'nt':
-		cmd = " wmic process where name='mysqld.exe' get executablepath &\
-				wmic service where name='mariadb' get pathname &\
-				wmic service where name='mysql' get pathname"
-		p = os.popen(cmd).read().upper()
-		for line in p.splitlines():
-			tp = line.find("MYSQLD.EXE")
-			if tp >0:
-				line = line.replace('"', '')
-				line = line[:tp+len("MYSQLD.EXE")].strip()
-				arr_path.append(line)
-	else :
-		cmd = "which mysqld"
-		p = os.popen(cmd).read().upper()
-		arr_path.append(p.strip())
-
-	return arr_path
-
-def dbconMaster(host = '', user = '', password = '', db = '', charset ='', port=0): #Mysql
-	if not host :
-		host = str(configVars('software.mysql.host'))
-	if not user:
-		user = str(configVars('software.mysql.user'))
-	if not password :
-		password = str(configVars('software.mysql.password'))
-	if not db:
-		db = str(configVars('software.mysql.db'))
-	if not charset:
-		charset = str(configVars('software.mysql.charset'))
-	if not port:
-		port = int(configVars('software.mysql.port'))
-
-
-	try:
-		dbcon = pymysql.connect(host=host, user=str(user), password=str(password),  charset=charset, port=int(port))
-	# except pymysql.err.OperationalError as e :
-	except Exception as e :
-		print ('dbconerr', str(e))
-		return None
-	
-	return dbcon
-
-
-def getMysqlPort(fname=''):
-	if os.name =='nt' and not fname:
-		fname = os.path.dirname(configVars('software.mysql.path')) + "\\data\\my.ini"
-	else :
-		return 3306
-	# print (fname)
-	if not os.path.isfile(_ROOT_DIR + "/MariaDB/data/my.ini"):
-		return 3306
-	cfg = ConfigParser(allow_no_value=True)
-	cfg.read(fname)
-	port = cfg.get("mysqld","port") 
-	if not port:
-		port = 3306
-	return port
-
-########################  PARSING DATA ###################################################################################################################
-# ==> move to parse_func.py
-
-
-################################################ Main #############################
-
-modifyConfig("software.status.start_time", int(time.time()))
-modifyConfig("software.service.root_dir", _ROOT_DIR)
-
-# _mysql_port = getMysqlPort()
-# print('mysql_port', _mysql_port)
-
-
-_SERVER = configVars('software.root.update_server.address')
-_SERVER_MAC = configVars('software.root.update_server.mac')
-TZ_OFFSET =  configVars('system.datetime.timezone.offset')
-
-# print (TZ_OFFSET)
-try :
-    TZ_OFFSET = int(TZ_OFFSET)
-except:
-    TZ_OFFSET = 0
-if not TZ_OFFSET:
-    TZ_OFFSET = 3600*8
-
-PROBE_INTERVAL = configVars('software.service.probe_interval')
-try:
-    PROBE_INTERVAL = int(PROBE_INTERVAL)
-except:
-    PROBE_INTERVAL = 0
-if not PROBE_INTERVAL:
-    PROBE_INTERVAL = 30
-
-
-MYSQL = {
-    "commonParam": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.param'),
-    "commonSnapshot": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.snapshot'),
-    "commonCount": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.counting'),
-    "commonHeatmap": configVars('software.mysql.db') +"." + configVars('software.mysql.db_common.table.heatmap'),
-    "commonCountEvent": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.count_event'),
-    "commonFace": configVars('software.mysql.db') + "." + configVars('software.mysql.db_common.table.face'),
-    "customCount": configVars('software.mysql.db_custom.table.count'),
-    "customHeatmap": configVars('software.mysql.db_custom.table.heatmap'),
-    "customAgeGender": configVars('software.mysql.db_custom.table.age_gender'),
-    "customSquare": configVars('software.mysql.db_custom.table.square'),
-    "customStore": configVars('software.mysql.db_custom.table.store'),
-    "customCamera": configVars('software.mysql.db_custom.table.camera'),
-    "customCounterLabel": configVars('software.mysql.db_custom.table.counter_label'),
-    "customRtCount": configVars("software.mysql.db_custom.table.rtscreen")
-}
-CGIS = load_cgis()
-# print(MYSQL)
-# a = list_device()
-# print(a)
-
-def loadSettings(sel = 'db_table'):
-	with open (_ROOT_DIR+"/bin/setting.json", "r") as f:
+def load_cgis():
+	with open (CONFIG['cgis'], "r", encoding="utf8") as f:
 		body = f.read()
-	return json.loads(body)[sel]
+
+	return json.loads(body)
+
+def addSlashes(strings):
+	if isinstance(strings, bytes):
+		try:
+			strings = strings.decode("utf-8")
+		except :
+			strings = strings.decode("utf-16")
+	symbols = ["\\", '"', "'", "\0", "$" ]
+	for i in symbols:
+		if i in strings: 
+			strings = strings.replace(i, '\\' + i)
+	return strings
+
+def ts_to_tss(ts):
+    # tm_year=2021, tm_mon=3, tm_mday=22, tm_hour=21, tm_min=0, tm_sec=0, tm_wday=0, tm_yday=81, tm_isdst=-1
+	tss = time.gmtime(ts)
+	year = int(tss.tm_year)
+	month = int(tss.tm_mon) 
+	day = int(tss.tm_mday)
+	hour = int(tss.tm_hour)
+	min = int(tss.tm_min)
+	wday = int((tss.tm_wday+1)%7)
+	week = int(time.strftime("%U", tss))
+
+	return (year, month, day, hour, min, wday, week)
+
+def message(strs):
+	print (strs)
+
+MONGO = {
+	"db": CONFIG['MONGODB']['db'],
+    "commonData":     CONFIG['MONGODB']['tables']['common_data'],
+	"commonDevice":   CONFIG['MONGODB']['tables']['common_device'],
+	"commonCgis":     CONFIG['MONGODB']['tables']['common_cgis'],
+	"commonUser":     CONFIG['MONGODB']['tables']['common_user'],
+	"floatingUser":   CONFIG['MONGODB']['tables']['floating_user'],
+	"floatingDevice": CONFIG['MONGODB']['tables']['floating_device'],
+
+	"customParam":  CONFIG['MONGODB']['tables']['params'],
+    "customCount":{
+		"tenmin": CONFIG['MONGODB']['tables']['count_tenmin'],
+		"hour":   CONFIG['MONGODB']['tables']['count_hour'],
+		"day":    CONFIG['MONGODB']['tables']['count_day'],
+		"week":   CONFIG['MONGODB']['tables']['count_week'],
+		"month":  CONFIG['MONGODB']['tables']['count_month'],
+		"year":   CONFIG['MONGODB']['tables']['count_year'],
+		"total":  CONFIG['MONGODB']['tables']['count_total'],
+    },
+	"customSnapshot":     CONFIG['MONGODB']['tables']['snapshot'],
+    "customHeatmap":      CONFIG['MONGODB']['tables']['heatmap'],
+    "customAgeGender":    CONFIG['MONGODB']['tables']['age_gender'],
+    
+    "customRtCount":      CONFIG['MONGODB']['tables']['rtscreen'],
+    "customDeviceTree":   CONFIG['MONGODB']['tables']['device_tree'],
+	"customLanguage":     CONFIG['MONGODB']['tables']['language'],
+	"customUser":         CONFIG['MONGODB']['tables']['user'],
+	"customWebConfig":    CONFIG['MONGODB']['tables']['web_config'],
+}
+
+CGIS = load_cgis()
+
+if __name__ == '__main__':
+
+	# print(CONFIG)
+	# test_mongo()
+	# check_mongodb_users('hanskim', 'wjdtjd')
+	# test_mongo()
+	# devlist = list_device()
+	# for dev in devlist:
+	# 	print(dev)
+
+	# print(MYSQL)
+	# print(CGIS)
+	
+	# modifyConfig("goal", {"a":1, "b":2})
+
+	client = db_connect()
+	collection = client[MONGO['db']][MONGO['commonDevice']]
+	total_records = collection.count_documents({'device_info':'mac=00132307A2EF&brand=CAP&model=KPN2102HD'})
+	print(total_records	   )
+	# collection.insert_one({'device_info':'mac=00132307A2EF&brand=CAP&model=KPN2102HD', 'usn':'D3007A2EF', 'url':'192.168.3.18'})
+	rows = collection.find({})
+	for row in rows:
+		print(row)
+
+
+
+
+
+
+
+
