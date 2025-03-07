@@ -75,7 +75,7 @@ def parseParam(body, device_family='IPN'): #body <type byte>
         dict_rs['mac'] = dict_rs['mac'].replace(":", "").upper()
     else :
         print ("mac not exist")
-        return False
+        # return False
     dict_rs['face_det'] = 'y' if (dict_rs['face_det'] == 'y' and dict_rs['face_det_c'] == 'y') else 'n'
     dict_rs['url'] = dict_rs['ip4address_dhcp'] if dict_rs['ip4mode'] == "dhcp" else dict_rs['ip4address']
     if dict_rs.get('dhcp_enable'):

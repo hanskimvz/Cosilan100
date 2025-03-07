@@ -5,7 +5,7 @@
       </ul>
       <navLanguage /><navDropdown />
     </div>
-  </nav>
+  </nav>  
   
   <div class="main">
     <main class="content">
@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUpdated, computed } from 'vue';
+import { ref, watch, onMounted, onUpdated, reactive } from 'vue';
 import axios from 'axios';
 import { _tz_offset } from '@/store/nav_store.js'
 import { useRoute, useRouter } from 'vue-router'
@@ -227,7 +227,7 @@ const movePage = ((p) =>{
   getDBData();
 })
 
-const getDBData=(()=>{
+const getDBDataX=(()=>{
   let dbs = route.params.table.split(".");
   db_name = dbs[0];
   table_name = dbs[1];
@@ -347,6 +347,34 @@ const getDBData=(()=>{
   });
 });
 
+const post_data = reactive({
+  db: db_name,
+  table: table_name,
+  fields: fields,
+  search: search,
+  orderby: orderby,
+  page_no: page_no,
+  page_max: page_max,
+  format : 'json'
+})
+
+const getDBData = async ()=>{
+
+  try {
+    const res = await axios({
+      method: 'post',
+      url: '/api/query',
+      params:{ data:'querydb' },
+      data: post_data,
+      header:{"Context-Type": "multipart/form-data"}
+    });
+    const data = await res.data;
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 onUpdated(()=>{
   if (reload_flag == true) {
     // console.log(1);
@@ -356,7 +384,7 @@ onUpdated(()=>{
 })
 
 onMounted(()=>{
-  getDBData();
+  // getDBData();
 })
 
 </script>

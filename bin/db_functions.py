@@ -85,14 +85,13 @@ def updateSimpleParam(device):
     collection = db[MONGO['commonDevice']]
     dev = collection.find_one({'device_info':device['device_info']})
     if dev:
-        collection.update_one({'device_info':device['device_info']}, {'$set':{'ip':device['ip'], 'port':device['port'], 'url':device['url'], 'regdate':regdate, 'last_access':regdate, 'method':'active'}})
+        collection.update_one({'device_info':device['device_info']}, {'$set':{'ip':device['ip'], 'port':device['port'], 'url':device['url'], 'last_access':regdate, 'method':'active'}})
 
     else:
-        collection.insert_one({'device_info':device['device_info'], 'ip':device['ip'], 'port':device['port'], 'url':device['url'], 'last_access':regdate, 'db_name': 'none', 'method':'active', 'flag':False})
+        collection.insert_one({'device_info':device['device_info'], 'ip':device['ip'], 'port':device['port'], 'url':device['url'], 'regdate':regdate, 'last_access':regdate, 'db_name': 'none', 'method':'active', 'flag':False})
 
     client.close()
 
-    return False if dev['db_name'] == 'none' else True
 
 def updateParam(param) :
     # if param['db_name'] == 'none':
@@ -113,8 +112,9 @@ def updateParam(param) :
         collection = client[MONGO['db']][MONGO['floatingDevice']]
     else:
         collection = client[param['db_name']][MONGO['customParam']]
+
     num_records = collection.count_documents({'device_info':param['device_info']})
-    if len(param['usn']) >9:
+    if param.get('usn') and len(param['usn']) > 9:
         param['usn'] = param['usn'][:9]
     
     if param.get('authkey'):
@@ -157,7 +157,7 @@ def updateSnapshot(db_name='none', device_info='', snapshot=''):
 
     return True    
 
-def updateCountReportTenmin(db_name='none',device_info='', arr_crpt=[]):
+def updateCountReportTenmin(db_name='none', device_info='', arr_crpt=[]):
     if db_name == 'none':
         return False
     regdate = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -316,7 +316,7 @@ def updateHeatmap(db_name='none', device_info='', arr_hm=[]):
     return True   
 
 
-def getDeviceListFromDB(flag=None):
+def getDeviceListFromDB(flag=None): #  active use this function
     arr_dev = []
     client = db_connect()
     collection = client[MONGO['db']][MONGO['commonDevice']]
@@ -324,35 +324,47 @@ def getDeviceListFromDB(flag=None):
     
     for row in rows:
         if row.get('db_name') == 'none':
-            continue
-        collection = client[row['db_name']][MONGO['customParam']]
-        dev = collection.find_one({'device_info': row['device_info']})
+            collection = client[MONGO['db']][MONGO['floatingDevice']]
+        else:
+            collection = client[row['db_name']][MONGO['customParam']]
+
+        dev = row.copy()
+        devx = (collection.find_one({'device_info': row['device_info']}, {'snapshot':0, 'param':0}))
+        if devx:
+            dev.update(devx)
+
 
         if not dev.get('user_id'):
             dev['user_id'] = 'root'
         if not dev.get('user_pw'):
             dev['user_pw'] = 'pass'        
-        authkey, devfamily = checkAuthMode(dev['ip'], dev['port'], dev['user_id'], dev['user_pw'])
-       
-        arr_dev.append({
-            "device_info": dev['device_info'],
-            "ip": dev['ip'],
-            "port": dev['port'],
-            "url": dev['url'],
-            "db_name": dev['db_name'],
-            "user_id": dev['user_id'],
-            "user_pw": dev['user_pw'],
-            "online": True if devfamily else False,
-            "authkey": authkey,
-            "device_family": devfamily,
-            "flag": dev['flag'] if dev.get('flag') else False,
-        })
+        dev['authkey'], dev['device_family'] = checkAuthMode(dev['ip'], dev['port'], dev['user_id'], dev['user_pw'])
+        dev['online'] = True if dev['authkey'] and dev['device_family'] else False
+        arr_dev.append(dev)
+        # arr_dev.append({
+        #     "device_info": dev['device_info'],
+        #     "ip": dev['ip'],
+        #     "port": dev['port'],
+        #     "url": dev['url'],
+        #     "db_name": dev['db_name'],
+        #     "user_id": dev['user_id'],
+        #     "user_pw": dev['user_pw'],
+        #     "online": True if devfamily else False,
+        #     "authkey": authkey,
+        #     "device_family": devfamily,
+        #     "flag": dev['flag'] if dev.get('flag') else False,
+        # })
     client.close()
     return arr_dev
 
-def getDeviceInfoFromDB(db_name, device_info, fields={}):
+def getDeviceInfoFromDB(device_info, fields={}): # TLSS use this function
     client = db_connect()
-    collection = client[db_name][MONGO['customParam']]
+    collection = client[MONGO['db']][MONGO['commonDevice']]
+    dev = collection.find_one({'device_info': device_info})
+    if not dev:
+        return {}
+
+    collection = client[dev['db_name']][MONGO['customParam']]
     
     flags = {f:1 for f in fields }
     rows = collection.find_one({'device_info': device_info}, flags)
@@ -572,8 +584,8 @@ def updateCountReportExt(db_name='none'):
     return True
 
 class thUpdateCountReportExtTimer():
-    def __init__(self, t=1800):
-        self.name = "active_count"
+    def __init__(self, t=600):
+        self.name = "update_count_report_ext"
         self.t = t
         self.last = 0
         self.i = 0
@@ -586,8 +598,9 @@ class thUpdateCountReportExtTimer():
         self.thread.start()
 
     def main_function(self):
-        db_names = ['cnt_demo']
+        db_names = getDatabaseNames()
         for db_name in db_names:
+            print(db_name, 'updateCountReportExt started')
             updateCountReportExt(db_name)
 
     def start(self):
@@ -616,10 +629,13 @@ if __name__ == '__main__':
     # x = getDeviceListFromDB()
     # for xx in x:
     #     print(xx)
+    x = getDeviceInfoFromDB('mac=001323A00324&brand=CAP&model=IPN3102HD')
+    for xx in x:
+        print(xx,":", x[xx])
     # dbconn0 = dbconMaster()
     # with dbconn0:    
     #     updateRtCounting(dbconn0, 'cnt_demo')
-    updateCountReportExt('cnt_demo')    
+    # updateCountReportExt('dvo')    
     # x = getWriteParams()
     # print(x)
     # completeWriteParam([x[0]['_id']])

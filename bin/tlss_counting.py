@@ -29,7 +29,7 @@ import socket
 
 from functions_s import (send_tlss_command, recv_tlss_message, configVars, addSlashes, log, modifyConfig, CGIS, message)
 from parse_functions import parseParam, parseCountReport, parseHeatmapData
-from db_functions import(MYSQL, getWriteParam, putWriteParam, updateParam, updateSnapshot, getLatestTimestamp, updateCountingReport, updateHeatmap, getDeviceInfoFromDB)
+from db_functions import (MYSQL, getWriteParam, putWriteParam, updateParam, updateSnapshot, getLatestTimestamp, updateCountingReport, updateHeatmap, getDeviceInfoFromDB)
 # from cgis import arr_cgi_str, device_family_str
 
 def tlss_cgi(conn, cgi_str, timeout=2):
@@ -167,10 +167,10 @@ def tlss_client_thread(conn):
     param = getParam(conn, device_family=dev_family)
     # print (param)
     if param['ret'] :
+        param['snapshot'] = getSnapshot(conn, device_family=dev_family, format='b64')
         updateParam(device_info, param)
-    snapshot = getSnapshot(conn, device_family=dev_family, format='b64')
-    if snapshot:
-        updateSnapshot(device_info, snapshot)
+    
+        # updateSnapshot(device_info, snapshot)
 
     dev_info = getDeviceInfoFromDB(device_info)
     # print(dev_info)

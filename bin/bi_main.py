@@ -41,7 +41,7 @@ _th = {
 
 if __name__ == '__main__':
     _th['active_count'].start()
-    # _th['update_count_report_ext'].start()
+    _th['update_count_report_ext'].start()
 
     while True:
         time.sleep(1)

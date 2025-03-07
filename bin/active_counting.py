@@ -28,7 +28,7 @@ import threading
 
 from functions_s import (CONFIG, active_cgi, list_device, log, CGIS, message, addSlashes, checkAuthMode)
 from parse_functions import (parseParam, parseCountReport, parseHeatmapData)
-from db_functions import (updateSimpleParam, updateParam, updateSnapshot, updateCountReportTenmin, updateHeatmap, getDeviceListFromDB, getDeviceInfoFromDB, getWriteParams, completeWriteParam, updateCountReportExt)
+from db_functions import (updateSimpleParam, updateParam, updateSnapshot, updateCountReportTenmin, updateHeatmap, getDeviceListFromDB, getDeviceInfoFromDB, getWriteParams, completeWriteParam)
 
 def writeParam():
     arr_cmd = getWriteParams()
@@ -159,20 +159,12 @@ def searchDeviceToDB():
             message (msg)
             continue
 
-        # message(dev)
+        message(dev)
         dev['device_info'] = "mac=%s&brand=%s&model=%s" %(dev['mac'], dev['brand'], dev['model'])
-        dev['regdate'] = regdate
+        # dev['regdate'] = regdate
         dev['last_access'] = regdate
-        x = updateSimpleParam(dev)
-        if x:
-            print('updateSimpleParam succeed', dev)
-        else: 
-            print('db_name is none', dev)
-            # dev['authkey'], dev['device_family'] = checkAuthMode(dev['ip'], int(dev['port']), dev['user_id'], dev['user_pw'])
-            # param = getParam(device_ip=dev['ip'], port=int(dev['port']), authkey=dev['authkey'], device_family=dev['device_family'])
-            # param['snapshot'] = getSnapshot(device_ip=dev['ip'], port=80, authkey=dev['authkey'], device_family=dev['device_family'], format='b64')
-            # updateParam(param)
-
+        updateSimpleParam(dev)
+        
     strn = "browsing  %d devices and info to db succeed" %len(arr_dev)
     message (strn)
     log.info(strn)
@@ -182,15 +174,15 @@ def searchDeviceToDB():
 def procActive():
     n = 0
     arr_dev = getDeviceListFromDB()
-    # print('arr_dev', arr_dev)
+    print('arr_dev', arr_dev)
     for dev in arr_dev:
         print()
         if not dev['online']:
-            print('not online', dev)
+            print('not online', dev['device_info'], dev['ip'])
             continue
-        if dev.get('db_name') and dev.get('db_name') == 'none':
-            print('db_name is none', dev)
-            continue
+        # if dev.get('db_name') and dev.get('db_name') == 'none':
+        #     print('db_name is none', dev)
+        #     continue
 
         if not ( dev['authkey'] and dev['device_family']):
             strn = "%s: No authkey or device family" %dev['ip']
@@ -221,10 +213,16 @@ def procActive():
         else:
             log.error(dev['ip'] + " failed to get parameters")
 
-        dev.update(
-            getDeviceInfoFromDB(dev['db_name'], dev['device_info'], fields=['device_info', 'authkey', 'heatmap', 'countrpt', 'enable_snapshot', 'enable_countrpt', 'enable_heatmap', 'user_id', 'user_pw', 'last_ts_count', 'last_ts_heatmap', 'last_ts_snapshot'])
-        )
-        # print('dev',dev)
+        
+        print(dev)
+        if not dev.get('db_name') or dev.get('db_name') == 'none':
+            continue
+
+        # dev.update(
+        #     getDeviceInfoFromDB(dev['db_name'], dev['device_info'], fields=['device_info', 'authkey', 'heatmap', 'countrpt', 'enable_snapshot', 'enable_countrpt', 'enable_heatmap', 'user_id', 'user_pw', 'last_ts_count', 'last_ts_heatmap', 'last_ts_snapshot'])
+        # )
+        # {'_id': ObjectId('67814a73a1513313da4f0047'), 'device_info': 'mac=001323A00324&brand=CAP&model=IPN3102HD', 'db_name': 'cnt_demo', 'flag': False, 'last_access': '2025-01-11 01:27:31', 'ip': '192.168.3.18', 'port': '80', 'regdate': '2025-01-26 02:22:17', 'url': '192.168.3.18', 'method': '', 'user_id': 'root', 'user_pw': 'pass', 'online': True, 'authkey': <requests.auth.HTTPBasicAuth object at 0x7fda10edda00>, 'device_family': 'IPN', 'usn': 'G90A00324', 'brand': 'CAP', 'productid': 'B006', 'model': 'IPN3102HD', 'mac': '001323A00324', 'ip4mode': 'static', 'ip4address_dhcp': None, 'ip4address': '192.168.3.18', 'lic_pro': 'y', 'lic_count': 'n', 'lic_surv': 'n', 'heatmap': 'n', 'countrpt': 'n', 'macsniff': 'n', 'face_det': 'n', 'ret': True, 'dhcp_ip': '0.0.0.0', 'last_ts_count': 0.0, 'enable_countrpt': 'y', 'enable_heatmap': 'y', 'enable_snapshot': 'y', 'last_ts_snapshot': 1737830858}
+        
         if dev.get('countrpt')=='y' and dev.get('enable_countrpt') == 'y':
             last_ts_count = dev['last_ts_count'] if dev.get('last_ts_count') else 0
             from_t = time.strftime("%Y/%m/%d%%20%H:%M", time.gmtime(last_ts_count))
@@ -296,9 +294,8 @@ class thActiveCountingTimer():
         searchDeviceToDB()
 
         n = procActive()
-        # n = 1
+
         te = time.time()
-        updateCountReportExt('cnt_demo')
         # self.t = 300 - int(te - ts) 
         # if self.t  < 0:
         #     self.t  = 1
@@ -337,9 +334,9 @@ if __name__ == '__main__':
     #     arr_crpt = json.loads(f.read())
     # print (arr_crpt)
     # updateCountReportTenmin(db_name='cnt_demo',device_info='mac=001323A00322&brand=CAP&model=IPN3502HDIR', arr_crpt=arr_crpt)
-    # procActive()
-    tc = thActiveCountingTimer()
-    tc.start()
-    while True:
-        time.sleep (100)
+    procActive()
+    # tc = thActiveCountingTimer()
+    # tc.start()
+    # while True:
+    #     time.sleep (100)
     

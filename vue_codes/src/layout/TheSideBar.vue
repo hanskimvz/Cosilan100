@@ -23,7 +23,7 @@ const toggleSidemenu = (menu) => {
   sidemenuOpen[menu] = !sidemenuOpen[menu]
 }
 
-onMounted( async ()=>{
+const loadSideMenu = async ()=>{
   await router.isReady();
   // console.log(route.meta.page)
   let url;
@@ -50,13 +50,18 @@ onMounted( async ()=>{
       }
     });
 
-    // console.log(sidemenus);
+    console.log(sidemenus);
   })
   .catch(error => {
       console.log(error);
       // router.push("/login")
   });
+};
+
+onMounted(()=>{
+  loadSideMenu();
 });
+
 
 </script>
 
